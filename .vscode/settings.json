@@ -1,0 +1,15 @@
+{
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "cmake.debugConfig": {
+    "cwd": "${workspaceFolder}/StationBuilder"
+  },
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.cppStandard": "c++17",
+  "files.associations": {
+    "*.level": "plaintext"
+  },
+  "files.exclude": {
+    "**/build": true
+  }
+}
