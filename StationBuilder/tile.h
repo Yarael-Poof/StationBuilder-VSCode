@@ -2,7 +2,6 @@
 #include <SFML/Graphics.hpp>
 #include <list>
 #include <iostream>
-#include <TGUI/TGUI.hpp>
 #include "tileObject.h"
 #include "engineMacros.h"
 #include "textureManager.h"

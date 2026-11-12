@@ -25,7 +25,7 @@ public:
 	void draw(sf::RenderWindow&  _window);//add all the level's tiles to the window.
 	void printTileInfos();//print dump all the objects on every tile of the level (verbose)
 	void printTileInfo(sf::Vector2f _tileCoords);//show the objets present on the specific tile
-	void drawTilePositionDebug(tgui::Gui& _gui);
+	void drawTilePositionDebug(const sf::RenderWindow& _window);//overlay tile index + world coords labels (call between ImGui::SFML::Update and Render)
 	void setTextureManager(textureManager* _textureMaster);
 	float getSizeW();
 	float getSizeH();

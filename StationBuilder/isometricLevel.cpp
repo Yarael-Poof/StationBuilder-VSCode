@@ -1,4 +1,5 @@
 #include "isometricLevel.h"
+#include <imgui.h>
 
 isometricLevel::isometricLevel()
 {
@@ -113,25 +114,22 @@ void isometricLevel::printTileInfo(sf::Vector2f _tileCoords)
 		levelTiles[coords2TileIndex(_tileCoords)].printAllObjectsInTile();
 }
 
-void isometricLevel::drawTilePositionDebug(tgui::GuiSFML& _gui)
-{ //INOP to be rewritten
+void isometricLevel::drawTilePositionDebug(const sf::RenderWindow& _window)
+{
+	//draws each tile's index and world position as text over the level, using ImGui's
+	//background draw list so it sits under the toolbar but over the SFML scene
+	ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+	const float lineHeight = ImGui::GetTextLineHeight();
 	for (int i = 0; i < levelTiles.size(); i++)
 	{
-		tgui::Label::Ptr tileNumberLabel = tgui::Label::create();
-		tgui::Label::Ptr tileCoordsLabel  = tgui::Label::create();
-		std::string tileNumberString, tileCoordsString;
 		sf::Vector2f tilePosition = levelTiles[i].getRootObjectCoords();
-		tileNumberString = i;
-		tileCoordsString = tilePosition.x + ',' + tilePosition.y;
-		tileNumberLabel->setText(tileNumberString);
-		tileCoordsLabel->setText(tileCoordsString);
-		tileNumberLabel->setPosition(tgui::Layout2d::Layout2d(tilePosition));
-		tileCoordsLabel->setPosition(tgui::Layout2d::Layout2d(tilePosition));
-		_gui.add(tileCoordsLabel);
-		_gui.add(tileNumberLabel);
-
+		sf::Vector2i screenPos = _window.mapCoordsToPixel(tilePosition);
+		std::string tileNumberString = std::to_string(i);
+		std::string tileCoordsString = std::to_string((int)tilePosition.x) + "," + std::to_string((int)tilePosition.y);
+		ImVec2 pos((float)screenPos.x, (float)screenPos.y);
+		drawList->AddText(pos, IM_COL32(255, 255, 255, 255), tileNumberString.c_str());
+		drawList->AddText(ImVec2(pos.x, pos.y + lineHeight), IM_COL32(255, 255, 0, 255), tileCoordsString.c_str());
 	}
-	return;
 }
 
 

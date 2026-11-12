@@ -5,15 +5,32 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Prebuilt SFML/TGUI only ship Debug + Release; use Release libs for other optimized configs
-set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release)
+# Prebuilt SFML only ships Debug + Release; use Release libs for other optimized configs
+set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release "") # "" = fall back to config-less targets (e.g. OpenGL::GL)
+set(CMAKE_MAP_IMPORTED_CONFIG_MINSIZEREL Release "")
 
 # Dependency locations come from CMAKE_PREFIX_PATH (see CMakePresets.json):
-#   SFML 2.6.x, TGUI 0.9.x, Boost (serialization, filesystem)
+#   SFML 2.6.x, Boost (serialization, filesystem)
 find_package(SFML 2.6 COMPONENTS graphics window system audio network REQUIRED)
-find_package(TGUI 0.9 REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS serialization filesystem)
+
+# Dear ImGui + ImGui-SFML backend, fetched at configure time (pinned versions)
+include(FetchContent)
+FetchContent_Declare(imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        v1.91.5
+    GIT_SHALLOW    TRUE)
+FetchContent_MakeAvailable(imgui)
+
+set(IMGUI_DIR ${imgui_SOURCE_DIR})
+set(IMGUI_SFML_FIND_SFML ON CACHE BOOL "" FORCE)
+set(IMGUI_SFML_IMGUI_DEMO OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(imgui-sfml
+    GIT_REPOSITORY https://github.com/SFML/imgui-sfml.git
+    GIT_TAG        v2.6.1
+    GIT_SHALLOW    TRUE)
+FetchContent_MakeAvailable(imgui-sfml)
+find_package(OpenGL REQUIRED) # ImGui-SFML renders with legacy OpenGL calls
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/StationBuilder)
 
@@ -31,7 +48,7 @@ target_include_directories(StationBuilder PRIVATE ${SRC_DIR})
 
 target_link_libraries(StationBuilder PRIVATE
     sfml-graphics sfml-window sfml-system sfml-audio sfml-network
-    tgui
+    ImGui-SFML::ImGui-SFML OpenGL::GL
     Boost::serialization Boost::filesystem
 )
 
@@ -43,7 +60,7 @@ if(MSVC)
     target_compile_definitions(StationBuilder PRIVATE BOOST_ALL_NO_LIB)
 endif()
 
-# Copy SFML/TGUI/Boost runtime DLLs next to the executable so it runs without PATH tweaks
+# Copy SFML runtime DLLs next to the executable so it runs without PATH tweaks
 add_custom_command(TARGET StationBuilder POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_RUNTIME_DLLS:StationBuilder> $<TARGET_FILE_DIR:StationBuilder>
