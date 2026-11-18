@@ -1,0 +1,69 @@
+# Outside the hull: things mounted on bare tiles (tiles with no floor) beside the hull, or on the roof of the deck
+# below (mount = "outside"). No cable, pipe or tube can be on a bare tile, so they reach the networks only through
+# their ports: face a port at the hull, with a cable, pipe or tube on the floor across it. They show in the exterior
+# view (O). Field reference: README.md.
+
+# A 3 x 1 radiator panel: liquid in at one end and out at the other, both on its upper right side (turn it with R to
+# face the hull). It sheds the liquid's heat to space as e sigma A (T^4 - Ts^4): about 2.3 kW with the liquid at
+# 20 C, 3.8 kW at 60 C. The two pipes inside go to its two end tiles, so they don't meet.
+[item.radiatorPanel]
+name = "Radiator panel"
+tab = "Outside"
+art = "tiles/radiatorPanel.png"
+mount = "outside"
+footprint = [3, 1]
+blocked = "a radiator goes outside: on bare tiles beside the hull, or on a roof, with its pipe ports facing the hull"
+fluid.radiator = { area_m2 = 6, emissivity = 0.9, conductance = 1, litres = 20 }
+thermal = { mass = 2000 }
+ports = [
+    { tile = [0, 0], side = "UR", carries = "liquid", flow = "in" },
+    { tile = [2, 0], side = "UR", carries = "liquid", flow = "out" },
+]
+
+# A 4 x 2 radiator: over three times the panel's area.
+[item.largeRadiator]
+name = "Large radiator"
+tab = "Outside"
+art = "tiles/largeRadiator.png"
+mount = "outside"
+footprint = [4, 2]
+blocked = "a radiator goes outside: on bare tiles beside the hull, or on a roof, with its pipe ports facing the hull"
+fluid.radiator = { area_m2 = 20, emissivity = 0.9, conductance = 2, litres = 60 }
+thermal = { mass = 6000 }
+ports = [
+    { tile = [0, 0], side = "UR", carries = "liquid", flow = "in" },
+    { tile = [3, 0], side = "UR", carries = "liquid", flow = "out" },
+]
+
+# A 2 x 2 solar array in constant sunlight: a source of power on its own, like a generator, through the power port on
+# its upper left side.
+[item.solarArray]
+name = "Solar array"
+tab = "Outside"
+art = "tiles/solarArray.png"
+mount = "outside"
+footprint = [2, 2]
+blocked = "a solar array goes outside: on bare tiles beside the hull, or on a roof, its power port facing a cable"
+electrical.generator = { volts = 230, hz = 50, va = 2500, ohms = 0.2, henries = 0.0005 }
+thermal = { mass = 1500 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "power", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Connected", toggle = true, default = true },
+]
+
+# A 4 x 1 docking jetty reaching out from the hull: a cargo hold that ships will load and unload, reached from the
+# station's item tubes through the port at its hull end (upper left).
+[item.dockingJetty]
+name = "Docking jetty"
+tab = "Outside"
+art = "tiles/dockingJetty.png"
+mount = "outside"
+footprint = [4, 1]
+blocked = "a jetty goes outside: on bare tiles reaching out from the hull, its item port at the hull"
+storage = { litres = 20000, kg = 40000 }
+thermal = { mass = 8000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items" },
+]

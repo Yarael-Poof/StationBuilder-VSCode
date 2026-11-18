@@ -17,13 +17,13 @@ public:
 		float tileSize;
 		float stackLayer;
 		std::map<int, std::string> tileTypes;
-			
+
 	};
 	sf::Vector2f isoToCart(sf::Vector2f _cart);
 	sf::Vector2f cartToIso(sf::Vector2f _iso);
-	void saveStationToDisc(station* _stationToSave, std::string _stationName);
-	void loadLevelFromDisc(station& _stationToRestoreInto, std::string _stationName, textureManager* _textureManager);
+	void saveStationToDisc(station* _stationToSave, std::string _stationName);//saves every level as <name>/<layer>.level
+	bool loadStationFromDisc(station* _stationToRestoreInto, std::string _stationName, textureManager* _textureManager);//replaces the station's levels, false if nothing was loaded
 	void saveLevelToDisc(isometricLevel* _levelToSave, std::string _levelName);
-	void loadLevelFromDisc(isometricLevel& _levelToRestoreInto,std::string _levelName, textureManager* _textureManager);
+	bool loadLevelFromDisc(isometricLevel& _levelToRestoreInto,std::string _levelName, textureManager* _textureManager);
 };
 

@@ -1,0 +1,34 @@
+# a Station Builder blueprint: place it from the Blueprints menu (B)
+name = "Waste recycling"
+description = "Waste put in the crate on the left goes by tube to a recycler; its slag goes to a crate and its water to a tank."
+size = [6, 3]
+# each thing: its item, its tile from the upper tile [0, 0] (a machine's upper tile), and its settings as saves write them
+objects = [
+    { key = "floor", at = [0, 0] },
+    { key = "floor", at = [1, 0] },
+    { key = "floor", at = [2, 0] },
+    { key = "floor", at = [3, 0] },
+    { key = "floor", at = [4, 0] },
+    { key = "floor", at = [5, 0] },
+    { key = "floor", at = [0, 1] },
+    { key = "floor", at = [1, 1] },
+    { key = "floor", at = [2, 1] },
+    { key = "floor", at = [3, 1] },
+    { key = "floor", at = [4, 1] },
+    { key = "floor", at = [5, 1] },
+    { key = "floor", at = [0, 2] },
+    { key = "floor", at = [1, 2] },
+    { key = "floor", at = [2, 2] },
+    { key = "floor", at = [3, 2] },
+    { key = "floor", at = [4, 2] },
+    { key = "floor", at = [5, 2] },
+    { key = "tube", at = [3, 0] },
+    { key = "crate", at = [4, 0], settings = "accept=slag" },
+    { key = "crate", at = [0, 1] },
+    { key = "tube", at = [1, 1] },
+    { key = "recycler", at = [2, 1] },
+    { key = "pipe", at = [4, 1] },
+    { key = "tank", at = [5, 1], settings = "@empty" },
+    { key = "cable", at = [2, 2] },
+    { key = "generator", at = [2, 2] },
+]

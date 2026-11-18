@@ -1,0 +1,41 @@
+# a Station Builder blueprint: place it from the Blueprints menu (B)
+name = "Ice to water"
+description = "A mining intake brings in ice, a recycler melts it, and the water goes along a pipe into a tank that starts empty."
+size = [8, 3]
+# each thing: its item, its tile from the upper tile [0, 0] (a machine's upper tile), and its settings as saves write them
+objects = [
+    { key = "floor", at = [0, 0] },
+    { key = "floor", at = [1, 0] },
+    { key = "floor", at = [2, 0] },
+    { key = "floor", at = [3, 0] },
+    { key = "floor", at = [4, 0] },
+    { key = "floor", at = [5, 0] },
+    { key = "floor", at = [6, 0] },
+    { key = "floor", at = [7, 0] },
+    { key = "floor", at = [0, 1] },
+    { key = "floor", at = [1, 1] },
+    { key = "floor", at = [2, 1] },
+    { key = "floor", at = [3, 1] },
+    { key = "floor", at = [4, 1] },
+    { key = "floor", at = [5, 1] },
+    { key = "floor", at = [6, 1] },
+    { key = "floor", at = [7, 1] },
+    { key = "floor", at = [0, 2] },
+    { key = "floor", at = [1, 2] },
+    { key = "floor", at = [2, 2] },
+    { key = "floor", at = [3, 2] },
+    { key = "floor", at = [4, 2] },
+    { key = "floor", at = [5, 2] },
+    { key = "floor", at = [6, 2] },
+    { key = "floor", at = [7, 2] },
+    { key = "cable", at = [0, 0] },
+    { key = "miningIntake", at = [1, 0], settings = "rc=1" },
+    { key = "cable", at = [0, 1] },
+    { key = "generator", at = [0, 1] },
+    { key = "tube", at = [3, 1] },
+    { key = "recycler", at = [4, 1], settings = "rc=1" },
+    { key = "pipe", at = [6, 1] },
+    { key = "tank", at = [7, 1], settings = "@empty" },
+    { key = "cable", at = [4, 2] },
+    { key = "generator", at = [4, 2] },
+]

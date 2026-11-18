@@ -1,0 +1,5 @@
+# The build menu's tabs, in this order. Tabs named by items but not listed here come after these,
+# in the order the items are met. Field reference: README.md in this folder.
+
+[menu]
+tabs = ["Floors", "Walls", "Cables", "Risers", "Power", "Lights", "Heating", "Pipes", "Tanks", "Cooling", "Storage", "Tubes", "Industry", "Outside"]

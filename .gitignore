@@ -367,3 +367,6 @@ build/
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+
+# the content editor (F7) keeps a backup of each file it changes
+*.bak

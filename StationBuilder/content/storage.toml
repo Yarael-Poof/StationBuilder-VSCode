@@ -1,0 +1,24 @@
+# Storage: containers of solids. A container holds as much as fits in its litres (each material taking kg / density
+# of it), and no more than its kg if it gives one. Liquids go in tanks instead. Field reference: README.md.
+
+[item.crate]
+name = "Crate"
+tab = "Storage"
+art = "tiles/crate.png"
+blocked = "cannot place a crate here, it needs a floor or wall"
+storage = { litres = 1000, kg = 2000 }   # 1 m3; 2 tonnes at most
+thermal = { mass = 500 }
+
+# A 2 x 1 cargo container, with item ports on its ends for the item tubes to come: in at one end, out at the other
+[item.cargoContainer]
+name = "Cargo container"
+tab = "Storage"
+art = "tiles/cargoContainer.png"
+footprint = [2, 1]
+blocked = "cannot place a cargo container here, it needs 2 x 1 clear floor"
+storage = { litres = 12000, kg = 20000 }
+thermal = { mass = 4000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items", flow = "in" },
+    { tile = [1, 0], side = "LR", carries = "items", flow = "out" },
+]

@@ -1,0 +1,53 @@
+# The station's structure: the blank tile every level starts as, floors and walls.
+# Field reference: README.md in this folder.
+
+[item.empty]
+name = "Empty"
+layer = "background"          # the blank tile under everything; not in the menu
+art = "tiles/empty64white.png"
+blocked = "cannot place that here"
+
+[item.floor]
+name = "Floor"
+tab = "Floors"
+layer = "floor"
+art = "tiles/floor64.png"
+blocked = "cannot place another floor"
+thermal = { mass = 5000 }     # J/K: the deck and the air above it
+
+# Walls: one per edge. Only wallUL is in the menu; R turns it through the others (see [turns.Wall]).
+[item.wallUL]
+name = "Wall UL"
+tab = "Walls"
+layer = "wall"
+edge = "UL"
+art = "tiles/wallUL.png"
+blocked = "cannot place another wall"
+thermal = { wall = 0.5 }      # W/K through the wall
+
+[item.wallUR]
+name = "Wall UR"
+layer = "wall"
+edge = "UR"
+art = "tiles/wallUR.png"
+blocked = "cannot place another wall"
+thermal = { wall = 0.5 }
+
+[item.wallLL]
+name = "Wall LL"
+layer = "wall"
+edge = "LL"
+art = "tiles/wallLL.png"
+blocked = "cannot place another wall"
+thermal = { wall = 0.5 }
+
+[item.wallLR]
+name = "Wall LR"
+layer = "wall"
+edge = "LR"
+art = "tiles/wallLR.png"
+blocked = "cannot place another wall"
+thermal = { wall = 0.5 }
+
+[turns.Wall]
+items = ["wallUL", "wallUR", "wallLR", "wallLL"]   # clockwise from the upper left

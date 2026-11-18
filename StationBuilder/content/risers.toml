@@ -1,0 +1,38 @@
+# Risers: links through the floor to the same tile of the level above or below.
+# One "Riser" menu item; what it carries (cable, pipe, air duct or item tube) is picked in the menu (see [kinds.Riser]).
+# Field reference: README.md in this folder.
+
+[item.riser]
+name = "Cable riser"
+tab = "Risers"
+art = "tiles/riser.png"
+draw_arms = "cross_upright"   # four-way art with an upright conduit that stays
+shape = true
+blocked = "cannot place a riser here, it needs a floor or wall"
+electrical.riser = { ohms = 0.01, henries = 0.5e-6, amps = 32 }
+
+[item.riserPipe]
+name = "Pipe riser"
+art = "tiles/riserPipe.png"
+draw_arms = "cross_upright"
+shape = true
+blocked = "cannot place a pipe riser here, it needs a floor or wall"
+fluid.riser = { conductance = 0.5, litres = 10 }
+
+[item.riserDuct]
+name = "Air duct riser"
+art = "tiles/riserDuct.png"
+blocked = "cannot place an air duct riser here, it needs a floor or wall"
+thermal = { duct = 200 }      # W/K of air between its tile and a duct riser's above or below
+
+[item.riserTube]
+name = "Tube riser"
+art = "tiles/riserTube.png"
+draw_arms = "cross_upright"
+shape = true
+blocked = "cannot place a tube riser here, it needs a floor or wall"
+items.riser = { kg_per_s = 2 }
+
+[kinds.Riser]
+items = ["riser", "riserPipe", "riserDuct", "riserTube"]
+labels = ["Cable", "Pipe", "Air duct", "Tube"]

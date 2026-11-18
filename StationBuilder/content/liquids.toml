@@ -1,0 +1,62 @@
+# Liquids: pipes, pumps, tanks and heat exchangers.
+# Field reference: README.md in this folder.
+
+[item.pipe]
+name = "Pipe"
+tab = "Pipes"
+art = "tiles/pipe.png"
+draw_arms = "cross"
+shape = true
+blocked = "cannot place a pipe here, it needs a floor or wall"
+fluid.pipe = { conductance = 0.5, litres = 10 }   # (L/s)/kPa for one tile; litres it holds
+
+# The pump: a machine with a liquid port in on its lower right face and out on its upper left, so unturned it
+# pushes towards the upper left. R turns it as it is placed; it has a picture for each turn (the arrow shows which way
+# it pushes), drawn over the pipe stubs it links on (draw_arms = "pipe"). It takes power through a cable on its tile.
+[item.pump]
+name = "Pump"
+tab = "Pipes"
+art = ["tiles/pumpUL.png", "tiles/pumpUR.png", "tiles/pumpLR.png", "tiles/pumpLL.png"]
+draw_arms = "pipe"
+blocked = "cannot place a pump here, it needs a floor or wall"
+electrical.load = { watts = 250 }
+fluid.pump = { kpa = 150, flow = 2, conductance = 0.5, litres = 10 }
+thermal = { mass = 2000 }
+ports = [
+    { side = "LR", carries = "liquid", flow = "in" },
+    { side = "UL", carries = "liquid", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    { key = "s", label = "Speed", default = 100, min = 10, max = 100, step = 10, unit = "%" },
+]
+
+# Older saves have a pump for each direction: they load as the pump, turned
+[aliases]
+pumpUL = "pump"
+pumpUR = "pump{r=1}"
+pumpLR = "pump{r=2}"
+pumpLL = "pump{r=3}"
+
+[item.tank]
+name = "Tank"
+tab = "Tanks"
+art = "tiles/tank.png"
+blocked = "cannot place a tank here, it needs a floor or wall"
+fluid.tank = { litres = 1000, conductance = 5, liquid = "water" }   # placed full of it
+
+[item.coolantTank]
+name = "Coolant tank"
+tab = "Tanks"
+art = "tiles/coolantTank.png"   # the tank with a pink level window
+blocked = "cannot place a tank here, it needs a floor or wall"
+fluid.tank = { litres = 1000, conductance = 5, liquid = "coolant" }
+
+[item.exchanger]
+name = "Heat exchanger"
+tab = "Cooling"
+art = "tiles/exchanger.png"
+draw_arms = "pipe"
+blocked = "cannot place a heat exchanger here, it needs a floor or wall"
+fluid.exchanger = { watts_per_kelvin = 300, conductance = 0.5, litres = 20 }
+thermal = { mass = 2000 }

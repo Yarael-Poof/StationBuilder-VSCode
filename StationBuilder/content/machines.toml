@@ -1,0 +1,48 @@
+# Machines bigger than one tile. Each is placed with the pointed tile at its middle, turned with R, and joins the
+# networks only through its ports (marked on the placement ghost, round the selected machine, and in the power and
+# liquid views). Field reference: README.md in this folder.
+
+# A 2 x 2 tank, joined to pipes at its upper left and lower right corners. Inside, its two ports are one tank.
+[item.largeTank]
+name = "Large tank"
+tab = "Tanks"
+art = "tiles/largeTank.png"
+footprint = [2, 2]
+blocked = "cannot place a large tank here, it needs 2 x 2 clear floor"
+fluid.tank = { litres = 8000, conductance = 5, liquid = "water" }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "liquid" },
+    { tile = [1, 1], side = "LR", carries = "liquid" },
+]
+
+# A 2 x 1 generator: four times the small one, through a power port on its end. Its waste heat warms both its tiles.
+[item.largeGenerator]
+name = "Large generator"
+tab = "Power"
+art = "tiles/largeGenerator.png"   # drawn mirrored when it is turned a quarter
+footprint = [2, 1]
+blocked = "cannot place a large generator here, it needs 2 x 1 clear floor"
+electrical.generator = { volts = 230, hz = 50, va = 20000, ohms = 0.025, henries = 0.15e-3, efficiency = 0.8 }
+thermal = { mass = 60000 }
+ports = [
+    { tile = [1, 0], side = "LR", carries = "power", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    { key = "v", label = "Output voltage", default = 230, min = 210, max = 250, step = 1, unit = "V" },
+]
+
+# A 2 x 1 heat exchanger: liquid in at one end, out at the other, trading four times the heat of the small one with
+# the air on its first tile
+[item.plateExchanger]
+name = "Plate heat exchanger"
+tab = "Cooling"
+art = "tiles/plateExchanger.png"
+footprint = [2, 1]
+blocked = "cannot place a plate heat exchanger here, it needs 2 x 1 clear floor"
+fluid.exchanger = { watts_per_kelvin = 1200, conductance = 1, litres = 60 }
+thermal = { mass = 6000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "liquid", flow = "in" },
+    { tile = [1, 0], side = "LR", carries = "liquid", flow = "out" },
+]

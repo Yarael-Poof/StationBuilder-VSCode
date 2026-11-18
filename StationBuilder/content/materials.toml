@@ -1,0 +1,54 @@
+# Materials: what liquids and stored goods are made of. A pipe network holds one liquid; its heat capacity
+# per litre (heat_capacity x density) sets how much heat each litre carries.
+# Field reference: README.md in this folder.
+
+[material.water]
+name = "Water"
+phase = "liquid"
+colour = "#3a8cff"
+density = 1000          # kg/m3
+heat_capacity = 4180    # J/(kg K): 4180 J/K per litre
+
+[material.coolant]
+name = "Coolant"        # a water-glycol mix: carries a little less heat per litre than water
+phase = "liquid"
+colour = "#f070b8"     # pink: kept clear of the temperature colours the pipes are drawn in
+density = 1070
+heat_capacity = 3300    # 3531 J/K per litre
+
+# Solids: what containers hold, and machines will process. density is as it packs (gaps included), so it sets how
+# much fits in a container's litres
+[material.ice]
+name = "Ice"
+phase = "solid"
+colour = "#cfefff"
+density = 920
+heat_capacity = 2100
+
+[material.iron_ore]
+name = "Iron ore"
+phase = "solid"
+colour = "#8a4b2f"
+density = 2400          # loose rock
+heat_capacity = 650
+
+[material.iron]
+name = "Iron"
+phase = "solid"
+colour = "#a7adb5"
+density = 4500          # stacked bars and plate
+heat_capacity = 450
+
+[material.slag]
+name = "Slag"
+phase = "solid"
+colour = "#5d554c"
+density = 1800
+heat_capacity = 800
+
+[material.waste]
+name = "Waste"
+phase = "solid"
+colour = "#6b5a2e"
+density = 600
+heat_capacity = 1500

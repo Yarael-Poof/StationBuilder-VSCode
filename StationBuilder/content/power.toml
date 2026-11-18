@@ -1,0 +1,66 @@
+# Electricity: cables, generators and the things that use power.
+# Field reference: README.md in this folder.
+
+[item.cable]
+name = "Cable"
+tab = "Cables"
+art = "tiles/cable.png"       # four-way art; the game cuts it down to the arms that link
+draw_arms = "cross"
+shape = true                  # placed as Auto, straight, corner or T (Shift+R), turned with R
+blocked = "cannot place a cable here, it needs a floor or wall"
+electrical.conductor = { ohms = 0.01, henries = 0.5e-6, amps = 32 }   # per tile
+
+[item.generator]
+name = "Integrated RTG"
+tab = "Power"
+art = "tiles/generator.png"
+blocked = "cannot place a generator here, it needs a floor or wall"
+electrical.generator = { volts = 230, hz = 50, va = 5000, ohms = 0.1, henries = 0.0006, efficiency = 0.75 }
+thermal = { mass = 20000 }
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    { key = "v", label = "Output voltage", default = 230, min = 210, max = 250, unit = "V" },
+]
+
+[item.generator60]
+name = "Generator 60 Hz"
+tab = "Power"
+art = "tiles/generator60.png"
+blocked = "cannot place a generator here, it needs a floor or wall"
+electrical.generator = { volts = 230, hz = 60, va = 5000, ohms = 0.1, henries = 0.5e-3, efficiency = 0.75 }
+thermal = { mass = 20000 }
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    { key = "v", label = "Output voltage", default = 230, min = 210, max = 250, step = 1, unit = "V" },
+]
+
+[item.light]
+name = "Light"
+tab = "Lights"
+art = "tiles/light.png"
+blocked = "cannot place a light here, it needs a floor or wall"
+electrical.load = { watts = 60 }     # at 230 V
+
+[item.heater]
+name = "Heater"
+tab = "Heating"
+art = "tiles/heater.png"
+blocked = "cannot place a heater here, it needs a floor or wall"
+electrical.load = { watts = 2000 }
+thermal = { mass = 1000 }
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    # a load with a "t" setting is a thermostat: it only draws power while its tile is colder than this
+    { key = "t", label = "Thermostat", default = 21, min = 5, max = 40, step = 1, unit = "°C" },
+]
+
+[item.bigHeater]
+name = "Big heater"
+tab = "Heating"
+art = "tiles/heater.png"
+electrical.load = { watts = 5000 }
+thermal = { mass = 3000 }
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+    { key = "t", label = "Thermostat", default = 18, min = 5, max = 40, step = 1, unit = "°C" },
+]

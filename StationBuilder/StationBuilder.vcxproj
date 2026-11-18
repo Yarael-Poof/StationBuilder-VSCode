@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -154,6 +154,9 @@
     <ClCompile Include="station.cpp" />
     <ClCompile Include="tile.cpp" />
     <ClCompile Include="tileObject.cpp" />
+    <ClCompile Include="tileCatalogue.cpp" />
+    <ClCompile Include="buildMenu.cpp" />
+    <ClCompile Include="simulation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="engineMacros.h" />
@@ -166,6 +169,9 @@
     <ClInclude Include="textureManager.h" />
     <ClInclude Include="tile.h" />
     <ClInclude Include="tileObject.h" />
+    <ClInclude Include="tileCatalogue.h" />
+    <ClInclude Include="buildMenu.h" />
+    <ClInclude Include="simulation.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="StationBuilder.rc" />

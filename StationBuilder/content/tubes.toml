@@ -1,0 +1,11 @@
+# Item tubes: they join containers' item ports into a network that moves solids, at up to its slowest tube's rate in
+# all. Laid like pipes: Auto joins whatever is next to it, Shift+R picks a shape, R turns it. Field reference: README.md.
+
+[item.tube]
+name = "Item tube"
+tab = "Tubes"
+art = "tiles/tube.png"
+draw_arms = "cross"
+shape = true
+blocked = "cannot place an item tube here, it needs a floor or wall"
+items.tube = { kg_per_s = 2 }

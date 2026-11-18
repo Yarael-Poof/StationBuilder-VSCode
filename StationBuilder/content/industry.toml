@@ -1,0 +1,93 @@
+# Industry: machines that make things. Each runs one of its recipes (picked in its tile panel): it takes a cycle of
+# inputs, works for the recipe's time at full power, and gives a cycle of outputs. Solids come and go through item
+# ports (the tubes), liquids through liquid ports (to and from the tanks on that pipe network). It holds up to two
+# cycles of each input and output; with nothing to do it switches its power off. Field reference: README.md.
+
+# A 2 x 2 intake that brings in raw material from the station's mining rigs outside: no inputs, just power.
+# Its output port is on its lower right face: run a tube from it to a container or a machine.
+[item.miningIntake]
+name = "Mining intake"
+tab = "Industry"
+art = "tiles/miningIntake.png"
+footprint = [2, 2]
+blocked = "cannot place a mining intake here, it needs 2 x 2 clear floor"
+electrical.load = { watts = 2500 }
+thermal = { mass = 20000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "power", flow = "in" },
+    { tile = [1, 1], side = "LR", carries = "items", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+]
+
+[[item.miningIntake.recipe]]
+name = "Mine iron ore"
+time = 10                       # seconds a cycle at full power
+out = { iron_ore = 20 }         # kg a cycle: 2 kg/s, as much as one tube carries
+
+[[item.miningIntake.recipe]]
+name = "Mine ice"
+time = 10
+out = { ice = 20 }
+
+# A 2 x 2 furnace: iron ore in at its upper left, iron and slag out at its lower right. It runs hot: as well as its
+# power, smelting gives off heat, and it stops while its air is above 60 C. Cool its room (heat exchangers) to keep
+# it going.
+[item.smelter]
+name = "Smelter"
+tab = "Industry"
+art = "tiles/smelter.png"
+footprint = [2, 2]
+blocked = "cannot place a smelter here, it needs 2 x 2 clear floor"
+electrical.load = { watts = 4000 }
+thermal = { mass = 40000 }
+max_temperature = 60            # C: it stops above this, and starts again 2 C below
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items", flow = "in" },
+    { tile = [1, 0], side = "UR", carries = "power", flow = "in" },
+    { tile = [1, 1], side = "LR", carries = "items", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+]
+
+[[item.smelter.recipe]]
+name = "Smelt iron"
+time = 8
+in = { iron_ore = 10 }
+out = { iron = 6, slag = 4 }
+heat = 2000                     # W given off while working, on top of its power
+
+# A 2 x 1 recycler: solids in at one end; water out through its liquid port (to a tank), and any solids out
+# through its item port, at the other end.
+[item.recycler]
+name = "Recycler"
+tab = "Industry"
+art = "tiles/recycler.png"
+footprint = [2, 1]
+blocked = "cannot place a recycler here, it needs 2 x 1 clear floor"
+electrical.load = { watts = 1500 }
+thermal = { mass = 10000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items", flow = "in" },
+    { tile = [0, 0], side = "LL", carries = "power", flow = "in" },
+    { tile = [1, 0], side = "UR", carries = "items", flow = "out" },
+    { tile = [1, 0], side = "LR", carries = "liquid", flow = "out" },
+]
+settings = [
+    { key = "on", label = "Running", toggle = true, default = true },
+]
+
+[[item.recycler.recipe]]
+name = "Recycle waste"
+time = 6
+in = { waste = 6 }
+out = { water = 3, slag = 2 }   # L of water, kg of slag
+heat = 300
+
+[[item.recycler.recipe]]
+name = "Melt ice"
+time = 5
+in = { ice = 10 }
+out = { water = 10 }
