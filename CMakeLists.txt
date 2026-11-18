@@ -142,3 +142,8 @@ endif()
 # so run/debug from the source folder. VS Code launch.json sets cwd to this too.
 set_property(TARGET StationBuilder PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${SRC_DIR})
 
+# Tools, built only when asked for (cmake --build build/debug --target ReadmeShots) and run from the source folder
+# like the game. ReadmeShots draws the README's screenshots into docs/screenshots (see the top of the file).
+add_executable(ReadmeShots EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/tools/readmeShots.cpp)
+target_link_libraries(ReadmeShots PRIVATE stationCode)
+set_property(TARGET ReadmeShots PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${SRC_DIR})

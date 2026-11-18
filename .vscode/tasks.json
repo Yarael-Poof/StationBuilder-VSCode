@@ -8,6 +8,14 @@
       "targets": ["StationBuilder"],
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "CMake: build README screenshots",
+      "type": "cmake",
+      "command": "build",
+      "targets": ["ReadmeShots"],
+      "group": "build",
+      "problemMatcher": ["$msCompile"]
     }
   ]
 }
