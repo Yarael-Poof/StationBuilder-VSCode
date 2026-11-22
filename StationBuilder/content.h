@@ -57,4 +57,7 @@ namespace content
 	//(contentArt.cpp) F5: reads the files again, reloads the art, and gives everything placed in the station its new
 	//definition (settings kept by key) and sprite. every level is marked changed, so the simulations rebuild
 	const report& reload(const std::string& _folder, station& _station, textureManager& _textures);
+	//the same for several stations (the station and every ship): the files are read once, then everything placed in
+	//each of them takes its new definition
+	const report& reload(const std::string& _folder, const std::vector<station*>& _stations, textureManager& _textures);
 }

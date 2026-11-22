@@ -51,6 +51,8 @@ ports = [
 settings = [
     { key = "on", label = "Running", toggle = true, default = true },
 ]
+light = { colour = "#ff8029", brightness = 1.5, reach = 9, height = 20, follows = "working", flicker = 0.3, glow = 0.75 }
+emits = { kind = "smoke", at = [64, 18], follows = "working" }   # from its chimney, while it works
 
 [[item.smelter.recipe]]
 name = "Smelt iron"

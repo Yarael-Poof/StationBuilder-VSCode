@@ -60,3 +60,4 @@ draw_arms = "pipe"
 blocked = "cannot place a heat exchanger here, it needs a floor or wall"
 fluid.exchanger = { watts_per_kelvin = 300, conductance = 0.5, litres = 20 }
 thermal = { mass = 2000 }
+emits = { kind = "steam" }

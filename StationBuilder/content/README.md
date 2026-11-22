@@ -82,6 +82,13 @@ The key is the item's name in save files. It must start with a letter, then lett
 | `rotates` | `true` to turn with R even with no ports and one tile big | `false` |
 | `recipe` | What a machine makes: one `[[item.<key>.recipe]]` table per recipe (see Recipes) | makes nothing |
 | `max_temperature` | Machines that make things: they stop while their air is hotter than this, C (see Recipes) | no limit |
+| `frame` | Floors only: `true` makes it a frame, open structure outside the hull (see Frames) | `false` |
+| `kg` | Its own mass, for a ship's mass | floor 400, frame 100, wall 150, cable, pipe or tube 20, other fixtures 300 |
+| `engine` | A ship's main engine: `{ newtons, exhaust_velocity, fuel, pushes }` (see Ships) | not an engine |
+| `thrusters` | Manoeuvring thrusters: `{ newtons, exhaust_velocity, fuel }` (see Ships) | none |
+| `gyroscope` | Turns a ship: `{ newton_metres = 300000 }` | none |
+| `helm` | `true`: a flight console, which a ship needs (powered) to take orders | `false` |
+| `dock` | A docking point: `{ tile = [x, y], face = "LR" }` (see Docking) | not one |
 
 The layer, wall edge and footprint of an item that is already loaded can't change with F5, nor can whether it is a
 machine; those need a restart.
@@ -263,9 +270,10 @@ See `machines.toml` for a large tank, a large generator and a plate heat exchang
 
 `mount = "outside"` puts an item outside the station:
 
-- **Where it goes:** on bare tiles (no floor) in the deck's area, either beside the hull (a floored tile next to one of
-  its tiles) or on the roof of the deck below (a floor directly under one of its tiles).
-- **What can't share its tiles:** no cable, pipe or tube can go on a bare tile, and no floor can be laid under it.
+- **Where it goes:** on bare tiles (no floor) or frames in the deck's area: beside the hull (a floored tile next to one
+  of its tiles), on the roof of the deck below (a floor directly under one of its tiles), or on frames.
+- **What can't share its tiles:** no cable, pipe or tube can go on a bare tile, and no floor can be laid under it (a
+  frame can).
 - **Connections:** it reaches the networks only through its ports. Face a port at the hull, with the cable, pipe or
   tube on the floor across it. The loader insists on the ports it needs: a power port to use or give power, liquid
   ports for liquid, item ports for storage.
@@ -276,6 +284,180 @@ See `outside.toml`:
 - **Radiator panel and large radiator:** liquid in at one end and out at the other, ports on the hull side.
 - **Solar array:** a generator in constant sunlight.
 - **Docking jetty:** a cargo hold reached through its item port at the hull end, ready for ships.
+
+## Frames
+
+A floor with `frame = true` is open structure outside the hull: a truss to build out on. It holds no air (the heat
+simulation leaves it out, and a floor next to it has an open edge), and it isn't hull in the exterior view.
+
+- **What goes on it:** cables, pipes, item tubes and their risers, pumps, and anything mounted outside. Things that need
+  a floor (lights, heaters, crates, machines) don't.
+- **Outside items on frames** count as mounted, however far the frames reach from the hull.
+
+## Ships
+
+A ship is decks like the station's, with parts that move it (`ships.toml`). On the nav map (N) it flies by Newton: its
+mass is every item's `kg` plus what its tanks and containers hold, at the items' places on its grid.
+
+- **`engine = { newtons, exhaust_velocity, fuel, pushes }`:** pushes the ship towards side `pushes` of its grid
+  (`"UL"`, `"UR"`, `"LL"` or `"LR"`, unturned; R turns it). It burns `newtons / exhaust_velocity` kg/s of `fuel` (a
+  liquid material), taken through its liquid port (flow `"in"` or `"both"`). Its `electrical.load` is drawn only while
+  it fires, through its power port. An engine whose push misses the centre of mass turns the ship; the gyroscopes hold
+  against it.
+- **Electric engines:** leave out `fuel` (and `exhaust_velocity`): it runs on its `electrical.load` alone, its thrust
+  following the power it gets, and burns nothing (the panel's delta-v is unlimited when every main engine is
+  electric). It needs the load, and a power port if it is a machine. See the Electric drive.
+- **Fuels:** any liquid material can be a fuel. A new fuel is a new `[material.<key>]` with `phase = "liquid"`; give
+  a tank `liquid = "<key>"` to hold it, and an engine `fuel = "<key>"` to burn it.
+- **`thrusters = { newtons, exhaust_velocity, fuel }`:** small pushes any way, through the centre of mass, for fine
+  moves. Fuel through a liquid port; with no `fuel`, electric like an engine (a load drawn while they fire).
+- **`gyroscope = { newton_metres }`:** turns the ship, on its `electrical.load` (drawn only while turning).
+- **`helm = true`:** a flight console. A ship takes orders, autopilot or manual, only while one has power.
+- **Delta-v:** the panel shows `exhaust_velocity x ln(mass / dry mass)` for the fuel aboard.
+- **The editor (F7):** all of these are in its "Ship" section, with the fuel picked from the liquids (or electricity),
+  the item's own mass, and its docking point.
+
+## Docking
+
+`dock = { tile = [x, y], face = "LR" }` makes an item a docking point: `tile` is a tile of its footprint (`[0, 0]` if
+left out) and `face` the outside face of that tile a ship docks against. Both turn with the item (R).
+
+- **How two meet:** a ship docks with one of its docking points against a dock on the station whose face is the
+  opposite one (its collar facing UL docks on a jetty end facing LR). It lies square to the station, its docking point
+  on the tile across the dock's face, so its grid is the station's moved by whole tiles. It is drawn beside the station
+  in the deck and exterior views.
+- **Getting there:** the nav panel's Dock order flies it to a point 25 m out from the dock, lines it up and closes in on
+  its manoeuvring thrusters, then latches. Flying by hand, "Dock now" latches it when it is within 2 m, 0.5 m/s and 3
+  degrees.
+- **Docked:** it is held in place. Cargo and liquid can be sent either way through the dock: solids between the
+  containers on each side's item network at its dock (the dock itself too, if it holds solids, like the jetty), at 20
+  kg/s; liquid between each side's pipes at the dock, at 20 L/s (the same liquid on both sides). Undock pushes it off.
+- **The examples:** the Docking jetty (Outside) docks at its far end, with an item port and a liquid port at its hull
+  end. The Docking collar (Ship) is a ship's docking point, its ring on the face it docks with and its item and liquid
+  ports on the opposite face. The starter ship has one on its nose.
+
+## Lighting: lights, glow, steam and smoke
+
+The deck view is lit:
+- Lamps and machines light the room they are in, and walls keep their light in.
+- The sides of things are lit from where the light is.
+- The bright parts of the art glow.
+- Steam and smoke rise.
+
+**F9** turns the lighting off and on. **Shift+F9** opens its settings: ambient light (how dark the unlit parts are),
+glow, normal maps, rooms, particles and emergency lights. While a view (power, heat, liquid, items) is on, the deck is
+lit brighter, so you can read the view.
+
+The simulation drives it:
+- A lamp gives the light its power allows.
+- A heater glows while its thermostat has it on.
+- A generator's status light is green while it runs, and red and blinking when it is switched off or has tripped.
+- The smelter's fire and smoke follow how fast it works.
+- A lamp whose power has failed (its network has generators, but no power) pulses red.
+- Sparks fly from cables running past their insulation's rating, and from a generator as it trips.
+
+### `light`: the light an item gives
+
+```toml
+light = { colour = "#ffd69e", brightness = 1.2, reach = 12, height = 26, emergency = true, glow = 0.85 }
+```
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| `colour` | `"#ffffff"` | The light's colour, `"#rrggbb"`. |
+| `brightness` | `1` | 1 is a lamp's brightness. 0: its art glows, but it lights nothing round it. |
+| `reach` | `6` | How far its light reaches, in m. A lamp reaches 12 m; a status light, 3. |
+| `height` | `20` | Where the light is in its art, in px above the floor. The lamp's bulb is 26 px up; a heater's coils, 12. Lower lights catch the floor at a flatter angle. |
+| `follows` | `"power"` for an electrical load, else `"always"` | What drives it:<br>- `"power"`: its share of its rated power.<br>- `"running"`: a generator. Its colour while it runs; red and blinking while it is stopped.<br>- `"working"`: a machine that makes things, by how fast it works.<br>- `"always"`: always on.<br>- `"blink"`: a beacon. |
+| `flicker` | `0` | 0 to 1: firelight. The smelter has 0.3. |
+| `emergency` | `false` | `true`: it pulses red while its power has failed (for lamps). |
+| `glow` | `0.8` | Which pixels of its art glow, when it has no glow map: pixels at least this bright (0 to 1) that are coloured, or near white. 0: nothing glows. |
+
+A light sits over the middle of the item's footprint. A docking point's light sits at its dock. Items without a
+`light` don't glow.
+
+### `emits`: steam or smoke
+
+```toml
+emits = { kind = "smoke", at = [64, 18], follows = "working" }
+```
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| `kind` | (needed) | `"steam"` or `"smoke"`. |
+| `at` | the top of its art | Where it comes from, in px from its art's top left, as the art is drawn unturned. A mirrored turn is mirrored for you. |
+| `follows` | `"always"` | What drives it, as for `light` (for example, smoke only while a machine works). |
+| `rate` | `1` | 1 is 12 puffs of steam a second, or 7 of smoke. |
+
+The F7 editor has all of these under **Light: its light, its glow, steam or smoke**.
+
+### The art's maps: making the textures for the lighting
+
+Every item's art can have two more pictures beside it. Both are optional, the same size as the art, and lined up with
+it pixel for pixel:
+
+| File | What it says |
+| --- | --- |
+| `tiles/<art>_normal.png` | The normal map: the way each pixel's surface faces. This is what lights a side facing a lamp and leaves the far side dark. |
+| `tiles/<art>_glow.png` | The glow map: what glows, painted in the colour it glows, and clear everywhere else. |
+
+For example, `tiles/heater.png` has `tiles/heater_normal.png` and `tiles/heater_glow.png`. Art with its own picture
+for each turn (the pump, the docking collar) has maps for each of those files.
+
+**Without them, the game makes both from the art:**
+- **The normal map** comes from the art's outline. Every item is a box seen from the game's angle, so the game can
+  work out which pixels are the top and which are the left and right sides. Flat art (floors, cables, a lamp's pool of
+  light) is all top.
+- **The glow** is the art's bright, coloured pixels (the `glow` field). Hand-made maps do better on anything that isn't
+  a plain box: round tanks, sloped tops, pipes, bevels, panel lines.
+
+#### The normal map's colours
+
+Each pixel's colour is the direction its surface faces:
+
+| Channel | Meaning |
+| --- | --- |
+| Red | Right. 0 faces left, 128 straight on, 255 right. |
+| Green | Up the picture. 0 faces down, 128 straight on, 255 up. |
+| Blue | Towards you. 128 is side-on, 255 straight at you. |
+
+This is the usual "OpenGL" kind of normal map, with green up. If your tool makes "DirectX" maps, flip the green.
+
+The game sees boxes from 30 degrees above, turned 45 degrees, so the faces of a box are these colours:
+
+| Face | Colour (r, g, b) | Hex |
+| --- | --- | --- |
+| Top (the floor too) | 128, 238, 191 | `#80eebf` |
+| Left side | 37, 82, 206 | `#2552ce` |
+| Right side | 218, 82, 206 | `#da52ce` |
+| The side facing you (a round tank's front) | 128, 64, 238 | `#8040ee` |
+| Facing straight out of the screen | 128, 128, 255 | `#8080ff` |
+
+- **A round tank or pipe standing up:** blend across its side from the left colour, through the facing-you colour, to
+  the right colour. Its top is the top colour.
+- **A slope:** between the colours of the faces it lies between. A roof sloping down to the right is between the top
+  and the right side.
+- **A bevel or raised edge:** a thin line of the colour of the way it leans.
+
+Heights come from the art's outline either way, so the map only needs the colours.
+
+#### Making one
+
+1. Open the item in the editor (F7). Under **Light**, press **write the made normal map**. This saves the game's own
+   map beside the art (`tiles/<art>_normal.png`) as a start.
+2. Open it in any paint program with layers: Aseprite, Krita, GIMP, Photoshop. It is easiest with the art on a layer
+   under it, at half opacity. Paint over the made map using the colours above, with flat colour and no soft edges.
+   Normal-map tools such as Laigter or SpriteIlluminator can help with curves; their output may need the green flipped.
+3. Press **F5** in the game: it reads the maps again. Shift+F9 has **Read the maps again** too.
+
+For a glow map, paint the glowing parts (a screen, a bulb, coils, a status lamp) in their glowing colour on a clear
+picture the size of the art, and save it as `tiles/<art>_glow.png`. Its brightness follows the item's `light` (power,
+working, blinking...). Give the item a `light` with `brightness = 0` if it should glow without lighting the room.
+
+**Exceptions:**
+- Items with `draw_arms` (cables, pipes, and the heat exchanger, whose art is cut to the arms it links) always use made
+  maps.
+- A map that isn't the size of its art is left out, with a note in the console.
 
 ## Recipes: machines that make things
 

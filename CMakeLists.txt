@@ -95,6 +95,11 @@ add_library(stationCode OBJECT
     ${SRC_DIR}/uiTheme.cpp
     ${SRC_DIR}/screenEffects.cpp
     ${SRC_DIR}/textDecode.cpp
+    ${SRC_DIR}/flight.cpp
+    ${SRC_DIR}/world.cpp
+    ${SRC_DIR}/navView.cpp
+    ${SRC_DIR}/docking.cpp
+    ${SRC_DIR}/lighting.cpp
 )
 
 # PUBLIC: what the game and its tools compile and link with too
@@ -147,3 +152,15 @@ set_property(TARGET StationBuilder PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${SRC_
 add_executable(ReadmeShots EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/tools/readmeShots.cpp)
 target_link_libraries(ReadmeShots PRIVATE stationCode)
 set_property(TARGET ReadmeShots PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${SRC_DIR})
+
+# SceneExport writes a scene for the raylib 3D prototype (prototypes/raylib3d, a separate CMake project): the README's
+# station with ships, or the game's save. Built only when asked for, run from the source folder like the game.
+add_executable(SceneExport EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/tools/sceneExport.cpp)
+target_link_libraries(SceneExport PRIVATE stationCode)
+
+# Lighting2DDemo: the 2D lighting prototype (prototypes/lighting2d), to compare with the raylib 3D one: the README's
+# station lit, with normal maps made from the art, rooms, glow and particles. Built only when asked for, run from the
+# source folder like the game.
+add_executable(Lighting2DDemo EXCLUDE_FROM_ALL ${CMAKE_CURRENT_SOURCE_DIR}/prototypes/lighting2d/lighting2d.cpp)
+target_link_libraries(Lighting2DDemo PRIVATE stationCode)
+set_property(TARGET Lighting2DDemo PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${SRC_DIR})

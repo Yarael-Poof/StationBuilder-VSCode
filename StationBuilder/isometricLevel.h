@@ -57,6 +57,8 @@ public:
 	void clearAll();
 	bool addEdgeWall(char _direction);//only for square levels return 0 if called on nonsquare level
 	void draw(sf::RenderWindow&  _window);//add all the level's tiles to the window.
+	//only what is built (no blank tiles), moved by _states' transform: a docked ship drawn beside a station
+	void drawBuilt(sf::RenderWindow& _window, const sf::RenderStates& _states);
 	void printTileInfos();//print dump all the objects on every tile of the level (verbose)
 	void printTileInfo(sf::Vector2f _tileCoords);//show the objets present on the specific tile
 	void drawTilePositionDebug(const sf::RenderWindow& _window);//overlay tile index + world coords labels (call between ImGui::SFML::Update and Render)

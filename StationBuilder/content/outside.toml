@@ -64,6 +64,11 @@ footprint = [4, 1]
 blocked = "a jetty goes outside: on bare tiles reaching out from the hull, its item port at the hull"
 storage = { litres = 20000, kg = 40000 }
 thermal = { mass = 8000 }
+# ships dock at its far end (the lower right face of its last tile, unturned); cargo comes and goes through the item
+# port at its hull end, and fuel and other liquids through the liquid port beside it (on a frame with a pipe)
+dock = { tile = [3, 0], face = "LR" }
 ports = [
     { tile = [0, 0], side = "UL", carries = "items" },
+    { tile = [0, 0], side = "UR", carries = "liquid" },
 ]
+light = { colour = "#ffc740", brightness = 1.6, reach = 7, height = 30, follows = "blink", glow = 0.75 }   # a beacon at its far end

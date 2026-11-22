@@ -13,7 +13,7 @@ electrical.conductor = { ohms = 0.01, henries = 0.5e-6, amps = 32 }   # per tile
 [item.generator]
 name = "Integrated RTG"
 tab = "Power"
-art = "tiles/generator.png"
+art = "tiles/RTG.png"
 blocked = "cannot place a generator here, it needs a floor or wall"
 electrical.generator = { volts = 230, hz = 50, va = 5000, ohms = 0.1, henries = 0.0006, efficiency = 0.75 }
 thermal = { mass = 20000 }
@@ -21,6 +21,7 @@ settings = [
     { key = "on", label = "Running", toggle = true, default = true },
     { key = "v", label = "Output voltage", default = 230, min = 210, max = 250, unit = "V" },
 ]
+light = { colour = "#59ff80", brightness = 0.45, reach = 3.5, height = 30, follows = "running", glow = 0.7 }   # its status light
 
 [item.generator60]
 name = "Generator 60 Hz"
@@ -33,6 +34,7 @@ settings = [
     { key = "on", label = "Running", toggle = true, default = true },
     { key = "v", label = "Output voltage", default = 230, min = 210, max = 250, step = 1, unit = "V" },
 ]
+light = { colour = "#59ff80", brightness = 0.45, reach = 3.5, height = 30, follows = "running", glow = 0.7 }   # its status light
 
 [item.light]
 name = "Light"
@@ -40,6 +42,7 @@ tab = "Lights"
 art = "tiles/light.png"
 blocked = "cannot place a light here, it needs a floor or wall"
 electrical.load = { watts = 60 }     # at 230 V
+light = { colour = "#ffd69e", brightness = 1.2, reach = 12, height = 26, emergency = true, glow = 0.85 }
 
 [item.heater]
 name = "Heater"
@@ -53,6 +56,7 @@ settings = [
     # a load with a "t" setting is a thermostat: it only draws power while its tile is colder than this
     { key = "t", label = "Thermostat", default = 21, min = 5, max = 40, step = 1, unit = "°C" },
 ]
+light = { colour = "#ff6b29", brightness = 0.9, reach = 5.5, height = 12, glow = 0.6 }   # glows while its thermostat has it on
 
 [item.bigHeater]
 name = "Big heater"
@@ -64,3 +68,4 @@ settings = [
     { key = "on", label = "Running", toggle = true, default = true },
     { key = "t", label = "Thermostat", default = 18, min = 5, max = 40, step = 1, unit = "°C" },
 ]
+light = { colour = "#ff6b29", brightness = 1.2, reach = 7, height = 12, glow = 0.6 }

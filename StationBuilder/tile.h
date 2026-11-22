@@ -41,13 +41,17 @@ public:
 	bool removeTopObject();//deletes the topmost object (fixtures, then walls, then the floor). false if the tile is empty
 	void clearTile();
 	void drawAllObjects(sf::RenderWindow& _window);
+	//what is built on it (not its blank background), drawn moved by _states' transform (a docked ship beside a station)
+	void drawBuiltObjects(sf::RenderWindow& _window, const sf::RenderStates& _states) const;
 	void printAllObjectsInTile();
 	void setTileObjectColour(sf::Color _colour);
 	sf::Vector2f getRootObjectCoords();//the world position of the background sprite
 	//every object on this tile, in draw order (background, floor, walls, fixtures)
 	std::vector<tileObject*> allObjects() const;
-	//a floor on it: it is inside the hull. no floor: a bare tile, open to space (where outside items mount)
-	bool hasFloor() const { return floorSlot != nullptr; }
+	//a floor on it: it is inside the hull. no floor (a bare tile, or a frame): open to space, where outside items mount
+	bool hasFloor() const;
+	//a frame on it: open structure outside the hull, which holds cables, pipes, tubes and outside items
+	bool hasFrame() const;
 	//anything on it but its blank background
 	bool hasAnything() const { return floorSlot || hasAnyWall() || !fixtureSlots.empty(); }
 	//calls _visit(tileObject*) for every object, in the same order as allObjects(), without building a list

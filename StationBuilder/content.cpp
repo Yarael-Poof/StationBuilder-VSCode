@@ -11,6 +11,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <tuple>
 
 namespace
 {
@@ -658,6 +659,13 @@ namespace
 			_type.layer = tileLayer::background;
 		else
 			r.fieldError("layer", "must be \"fixture\", \"floor\", \"wall\" or \"background\"");
+		//frame = true: open structure, a floor that isn't hull (see tileTypeInfo::frame)
+		_type.frame = r.flag("frame", false);
+		if (_type.frame && _type.layer != tileLayer::floor)
+			r.fieldError("frame", "only a floor can be a frame (layer = \"floor\")");
+		//kg: its own mass, for a ship's mass (left out: a default for its layer)
+		if (r.has("kg"))
+			_type.kg = r.number("kg", 0.0, false, 0.0, unlimited);
 		if (_type.layer == tileLayer::wall)
 		{
 			_type.wallEdge = sideFromName(r.text("edge", ""));
@@ -730,6 +738,107 @@ namespace
 			if (_type.layer != tileLayer::fixture)
 				r.error("storage: only fixtures can be storage");
 		}
+		//engine = { newtons, exhaust_velocity, fuel, pushes }: a ship's main engine. no fuel: electric (power alone)
+		if (const toml::table* t = r.subTable("engine"))
+		{
+			fieldReader q(*t, r.location(), "engine.", r.messages());
+			_type.engine.newtons = q.number("newtons", 0.0, true, 0.0, unlimited, true);
+			_type.engine.fuel = q.text("fuel", "");
+			const bool fuelled = !_type.engine.fuel.empty();
+			_type.engine.exhaustVelocity = q.number("exhaust_velocity", 0.0, fuelled, 0.0, unlimited, fuelled);
+			const int side = sideFromName(q.text("pushes", "UL"));
+			if (side < 0)
+				q.fieldError("pushes", "must be \"UL\", \"UR\", \"LL\" or \"LR\": the way it pushes the ship, unturned");
+			_type.engine.pushes = std::max(side, 0);
+			q.finish();
+		}
+		//thrusters = { newtons, exhaust_velocity, fuel }: manoeuvring thrusters. no fuel: electric
+		if (const toml::table* t = r.subTable("thrusters"))
+		{
+			fieldReader q(*t, r.location(), "thrusters.", r.messages());
+			_type.thrusters.newtons = q.number("newtons", 0.0, true, 0.0, unlimited, true);
+			_type.thrusters.fuel = q.text("fuel", "");
+			const bool fuelled = !_type.thrusters.fuel.empty();
+			_type.thrusters.exhaustVelocity = q.number("exhaust_velocity", 0.0, fuelled, 0.0, unlimited, fuelled);
+			q.finish();
+		}
+		//gyroscope = { newton_metres }: turns its ship
+		if (const toml::table* t = r.subTable("gyroscope"))
+		{
+			fieldReader q(*t, r.location(), "gyroscope.", r.messages());
+			_type.gyroTorque = q.number("newton_metres", 0.0, true, 0.0, unlimited, true);
+			q.finish();
+		}
+		//helm = true: a flight console
+		_type.helm = r.flag("helm", false);
+		//dock = { tile = [x, y], face = "LR" }: a docking point
+		if (const toml::table* t = r.subTable("dock"))
+		{
+			fieldReader q(*t, r.location(), "dock.", r.messages());
+			_type.dock.isDock = true;
+			if (const toml::array* cell = q.list("tile"))
+			{
+				if (cell->size() == 2 && (*cell)[0].is_integer() && (*cell)[1].is_integer())
+					_type.dock.cell = sf::Vector2i(int((*cell)[0].value<int64_t>().value_or(0)), int((*cell)[1].value<int64_t>().value_or(0)));
+				else
+					q.fieldError("tile", "must be [x, y], a tile of the footprint ([0, 0] is its upper tile)");
+			}
+			const int face = sideFromName(q.text("face", "", true));
+			if (face < 0)
+				q.fieldError("face", "must be \"UL\", \"UR\", \"LL\" or \"LR\": the face a ship docks against");
+			_type.dock.face = std::max(face, 0);
+			q.finish();
+		}
+		//light = { colour, brightness, reach, height, follows, flicker, emergency, glow }: the light it gives (lighting.h)
+		auto readDriver = [](fieldReader& _q, lightDriver _fallback) {
+			const std::string name = _q.text("follows", lightDriverName(_fallback));
+			const int driver = lightDriverFromName(name);
+			if (driver < 0)
+				_q.fieldError("follows", "must be \"power\", \"running\", \"working\", \"always\" or \"blink\"");
+			return driver < 0 ? _fallback : lightDriver(driver);
+		};
+		if (const toml::table* t = r.subTable("light"))
+		{
+			fieldReader q(*t, r.location(), "light.", r.messages());
+			lightProperties& l = _type.light;
+			l.gives = true;
+			const std::string colour = q.text("colour", "#ffffff");
+			unsigned int rgb = 0;
+			if (colour.size() == 7 && colour[0] == '#' && sscanf(colour.c_str() + 1, "%6x", &rgb) == 1)
+				l.colour = sf::Color(sf::Uint8(rgb >> 16), sf::Uint8(rgb >> 8), sf::Uint8(rgb));
+			else
+				q.fieldError("colour", "must be \"#rrggbb\", e.g. \"#ffd69e\"");
+			l.brightness = q.number("brightness", 1.0, false, 0.0, 20.0);
+			l.reach = q.number("reach", 6.0, false, 0.0, 100.0, true);
+			l.height = q.number("height", 20.0, false, 0.0, 255.0);
+			l.follows = readDriver(q, _type.electrical.load ? lightDriver::power : lightDriver::always);
+			l.flicker = q.number("flicker", 0.0, false, 0.0, 1.0);
+			l.emergency = q.flag("emergency", false);
+			l.glow = q.number("glow", 0.8, false, 0.0, 1.0);
+			q.finish();
+		}
+		//emits = { kind, at, follows, rate }: steam or smoke it gives off
+		if (const toml::table* t = r.subTable("emits"))
+		{
+			fieldReader q(*t, r.location(), "emits.", r.messages());
+			emitProperties& e = _type.emits;
+			e.kind = q.text("kind", "", true);
+			if (e.kind != "steam" && e.kind != "smoke")
+			{
+				q.fieldError("kind", "must be \"steam\" or \"smoke\"");
+				e.kind.clear();
+			}
+			if (const toml::array* at = q.list("at"))
+			{
+				if (at->size() == 2 && (*at)[0].is_number() && (*at)[1].is_number())
+					e.at = sf::Vector2f(float((*at)[0].value<double>().value_or(0.0)), float((*at)[1].value<double>().value_or(0.0)));
+				else
+					q.fieldError("at", "must be [x, y]: where in its art it comes from, in pixels from the art's top left");
+			}
+			e.follows = readDriver(q, lightDriver::always);
+			e.rate = q.number("rate", 1.0, false, 0.0, 10.0);
+			q.finish();
+		}
 		if (const toml::array* list = r.list("settings"))
 			readSettings(r, *list, _type.settings);
 		//[[item.<key>.recipe]]: what a machine makes, picked from its tile panel (its hidden "rc" setting)
@@ -753,6 +862,64 @@ namespace
 		}
 		readMachine(r, _table, _type);
 		checkRecipes(r, _type);
+		//engines and thrusters burn a liquid that comes in through a liquid port; electric ones (no fuel) run on power
+		for (const auto& [field, fuel, used] : { std::tuple<std::string, std::string, bool>("engine", _type.engine.fuel, _type.engine.isEngine()),
+			std::tuple<std::string, std::string, bool>("thrusters", _type.thrusters.fuel, _type.thrusters.isThruster()) })
+		{
+			if (!used)
+				continue;
+			if (fuel.empty())
+			{
+				if (!_type.electrical.load)
+					r.fieldError(field, "with no fuel it is electric and runs on power alone: give it electrical.load = { watts = ... }");
+				if (_type.layer != tileLayer::fixture)
+					r.error(field + ": only fixtures can be engines or thrusters");
+				continue;
+			}
+			const materialInfo* material = findMaterial(fuel);
+			if (!material)
+				r.fieldError(field + ".fuel", "\"" + fuel + "\" is not a material in the content files");
+			else if (material->state != materialInfo::phase::liquid)
+				r.fieldError(field + ".fuel", material->name + " is a solid: fuel has to be a liquid (it comes through a pipe)");
+			const bool hasLiquidIn = std::any_of(_type.ports.begin(), _type.ports.end(), [](const portInfo& _p) {
+				return _p.carries == portInfo::kind::liquid && _p.flow != portInfo::direction::out;
+			});
+			if (!hasLiquidIn)
+				r.fieldError("ports", field + ": it needs a liquid port (flow \"in\" or \"both\") to take its fuel through");
+			if (_type.layer != tileLayer::fixture)
+				r.error(field + ": only fixtures can be engines or thrusters");
+		}
+		if ((_type.gyroTorque > 0.0 || _type.helm) && _type.layer != tileLayer::fixture)
+			r.error("gyroscope, helm: only fixtures can be these");
+		if (_type.dock.isDock)
+		{
+			const sf::Vector2i cell = _type.dock.cell;
+			if (_type.layer != tileLayer::fixture)
+				r.error("dock: only fixtures can be docking points");
+			else if (cell.x < 0 || cell.y < 0 || cell.x >= _type.footprint.x || cell.y >= _type.footprint.y)
+				r.fieldError("dock.tile", "[" + std::to_string(cell.x) + ", " + std::to_string(cell.y) + "] isn't a tile of its footprint");
+			else
+			{
+				const sf::Vector2i across = cell + footprint::step(_type.dock.face);
+				if (across.x >= 0 && across.y >= 0 && across.x < _type.footprint.x && across.y < _type.footprint.y)
+					r.fieldError("dock.face", "faces another tile of it: a ship docks against an outside face");
+			}
+			if (!_type.outside)
+				r.warn("dock: a docking point is usually mounted outside (mount = \"outside\"), where ships can reach it");
+		}
+		//what drives a light, or steam and smoke, has to be something the item has
+		auto checkDriver = [&](const std::string& _field, lightDriver _driver) {
+			if (_driver == lightDriver::power && !_type.electrical.load)
+				r.warn(_field + ": follows \"power\", but it uses no power (electrical.load), so it stays dark");
+			else if (_driver == lightDriver::running && !_type.electrical.source)
+				r.warn(_field + ": follows \"running\", which is for generators (electrical.generator)");
+			else if (_driver == lightDriver::working && _type.recipes.empty())
+				r.warn(_field + ": follows \"working\", which is for machines that make things (a recipe)");
+		};
+		if (_type.light.gives)
+			checkDriver("light.follows", _type.light.follows);
+		if (_type.emits.emits())
+			checkDriver("emits.follows", _type.emits.follows);
 		if (_type.outside)
 		{
 			//outside, on a bare tile: no cable, pipe or tube can share its tile, so it reaches the networks through ports

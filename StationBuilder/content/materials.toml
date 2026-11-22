@@ -16,6 +16,13 @@ colour = "#f070b8"     # pink: kept clear of the temperature colours the pipes a
 density = 1070
 heat_capacity = 3300    # 3531 J/K per litre
 
+[material.propellant]
+name = "Propellant"     # what ships' engines and thrusters burn
+phase = "liquid"
+colour = "#b0e05a"     # green-yellow
+density = 1100
+heat_capacity = 2000
+
 # Solids: what containers hold, and machines will process. density is as it packs (gaps included), so it sets how
 # much fits in a container's litres
 [material.ice]

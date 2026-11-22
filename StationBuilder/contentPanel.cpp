@@ -64,6 +64,9 @@ namespace
 		const std::string ductText = thermal::summary(_type.thermal);
 		if (!ductText.empty())
 			ImGui::TextColored(ImVec4(0.75f, 0.85f, 0.95f, 1.f), "%s", ductText.c_str());
+		const std::string shipText = shipParts::summary(_type);
+		if (!shipText.empty())
+			ImGui::TextColored(uiTheme::info, "%s", shipText.c_str());
 		if (_type.thermal.heatCapacity > 0.0)
 			ImGui::Text("adds %.1f kJ/K to its tile's heat capacity", _type.thermal.heatCapacity / 1000.0);
 		if (_type.thermal.wallConductance > 0.0)

@@ -278,6 +278,10 @@ namespace contentWriter
 			line("rotates", "true");
 		if (_t.maxTemperature > 0.0)
 			line("max_temperature", number(_t.maxTemperature));
+		if (_t.frame)
+			line("frame", "true");
+		if (_t.kg >= 0.0)
+			line("kg", number(_t.kg));
 
 		//what it does
 		const electricalProperties& e = _t.electrical;
@@ -317,6 +321,45 @@ namespace contentWriter
 			line("storage", inlineTable({ { "litres", number(_t.storage.litres) }, { "kg", unlessZero(_t.storage.kg) } }));
 		if (_t.items.tube)
 			line(_t.items.vertical ? "items.riser" : "items.tube", inlineTable({ { "kg_per_s", number(_t.items.rate) } }));
+		//a ship's parts
+		//(an electric engine or thruster: no fuel, and so no exhaust velocity)
+		if (_t.engine.isEngine())
+			line("engine", inlineTable({ { "newtons", number(_t.engine.newtons) },
+				{ "exhaust_velocity", _t.engine.electric() ? "" : number(_t.engine.exhaustVelocity) },
+				{ "fuel", _t.engine.electric() ? "" : quoted(_t.engine.fuel) }, { "pushes", quoted(sideName(_t.engine.pushes)) } }));
+		if (_t.thrusters.isThruster())
+			line("thrusters", inlineTable({ { "newtons", number(_t.thrusters.newtons) },
+				{ "exhaust_velocity", _t.thrusters.electric() ? "" : number(_t.thrusters.exhaustVelocity) },
+				{ "fuel", _t.thrusters.electric() ? "" : quoted(_t.thrusters.fuel) } }));
+		if (_t.gyroTorque > 0.0)
+			line("gyroscope", inlineTable({ { "newton_metres", number(_t.gyroTorque) } }));
+		if (_t.helm)
+			line("helm", "true");
+		if (_t.dock.isDock)
+			line("dock", inlineTable({ { "tile", "[" + std::to_string(_t.dock.cell.x) + ", " + std::to_string(_t.dock.cell.y) + "]" },
+				{ "face", quoted(sideName(_t.dock.face)) } }));
+		//its light (fields at their defaults left out), and steam or smoke
+		if (_t.light.gives)
+		{
+			const lightProperties& l = _t.light;
+			const lightProperties defaults;
+			const lightDriver usual = _t.electrical.load ? lightDriver::power : lightDriver::always;
+			char colour[16];
+			snprintf(colour, sizeof(colour), "#%02x%02x%02x", l.colour.r, l.colour.g, l.colour.b);
+			line("light", inlineTable({ { "colour", quoted(colour) }, { "brightness", contentWriter::number(l.brightness) },
+				{ "reach", contentWriter::number(l.reach) }, { "height", contentWriter::number(l.height) },
+				{ "follows", l.follows != usual ? quoted(lightDriverName(l.follows)) : "" }, { "flicker", unlessZero(l.flicker) },
+				{ "emergency", l.emergency ? "true" : "" }, { "glow", l.glow != defaults.glow ? contentWriter::number(l.glow) : "" } }));
+		}
+		if (_t.emits.emits())
+		{
+			const emitProperties& e = _t.emits;
+			const std::string at = e.at.x >= 0.f && e.at.y >= 0.f ?
+				"[" + contentWriter::number(e.at.x) + ", " + contentWriter::number(e.at.y) + "]" : "";
+			line("emits", inlineTable({ { "kind", quoted(e.kind) }, { "at", at },
+				{ "follows", e.follows != lightDriver::always ? quoted(lightDriverName(e.follows)) : "" },
+				{ "rate", e.rate != 1.0 ? contentWriter::number(e.rate) : "" } }));
+		}
 
 		if (!_t.ports.empty())
 		{

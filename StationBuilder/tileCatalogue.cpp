@@ -898,3 +898,107 @@ int kindIndex(const std::string& _key)
 		return -1;
 	return int(std::find(family->keys.begin(), family->keys.end(), _key) - family->keys.begin());
 }
+
+const char* lightDriverName(lightDriver _driver)
+{
+	switch (_driver)
+	{
+	case lightDriver::power: return "power";
+	case lightDriver::running: return "running";
+	case lightDriver::working: return "working";
+	case lightDriver::always: return "always";
+	default: return "blink";
+	}
+}
+
+int lightDriverFromName(const std::string& _name)
+{
+	for (lightDriver d : { lightDriver::power, lightDriver::running, lightDriver::working, lightDriver::always, lightDriver::blink })
+		if (_name == lightDriverName(d))
+			return int(d);
+	return -1;
+}
+
+namespace shipParts
+{
+	double defaultKg(const tileTypeInfo& _type)
+	{
+		const fluidProperties& f = _type.fluid;
+		const bool line = _type.electrical.conductor || _type.items.tube || (f.carriesLiquid && !f.pump && !f.tank && f.exchange == 0.0);
+		switch (_type.layer)
+		{
+		case tileLayer::floor:
+			return _type.frame ? frameKg : floorKg;
+		case tileLayer::wall:
+			return wallKg;
+		case tileLayer::fixture:
+			return line ? lineKg : fixtureKg;
+		default:
+			return 0.0;
+		}
+	}
+
+	double kg(const tileTypeInfo& _type)
+	{
+		return _type.kg >= 0.0 ? _type.kg : defaultKg(_type);
+	}
+
+	bool placedDock(const tileObject& _object, sf::Vector2i _tile, sf::Vector2i& _dockTile, int& _face)
+	{
+		const tileObject& machine = _object.machine();
+		if (!machine.type || !machine.type->dock.isDock)
+			return false;
+		const tileTypeInfo& type = *machine.type;
+		const int turns = machine.turns();
+		const sf::Vector2i origin = footprint::isMachine(type) ? machine.origin : _tile;
+		_dockTile = origin + footprint::turnCell(type.dock.cell, type.footprint, turns);
+		_face = footprint::turnSide(type.dock.face, turns);
+		return true;
+	}
+
+	std::string summary(const tileTypeInfo& _type)
+	{
+		std::string text;
+		char line[200];
+		auto add = [&](const char* _line) {
+			if (!text.empty())
+				text += '\n';
+			text += _line;
+		};
+		auto fuelName = [](const std::string& _key) {
+			const materialInfo* m = findMaterial(_key);
+			return m ? m->name : _key;
+		};
+		const engineProperties& e = _type.engine;
+		if (e.isEngine())
+		{
+			if (e.electric())
+				snprintf(line, sizeof(line), "Electric engine: %.1f kN on its power alone (no fuel)", e.newtons / 1000.0);
+			else
+				snprintf(line, sizeof(line), "Engine: %.1f kN, burns %.2f kg/s of %s (exhaust %.0f m/s)", e.newtons / 1000.0,
+					e.exhaustVelocity > 0.0 ? e.newtons / e.exhaustVelocity : 0.0, fuelName(e.fuel).c_str(), e.exhaustVelocity);
+			add(line);
+		}
+		const thrusterProperties& t = _type.thrusters;
+		if (t.isThruster())
+		{
+			if (t.electric())
+				snprintf(line, sizeof(line), "Electric thrusters: %.1f kN each way", t.newtons / 1000.0);
+			else
+				snprintf(line, sizeof(line), "Thrusters: %.1f kN each way, burn %s (exhaust %.0f m/s)", t.newtons / 1000.0, fuelName(t.fuel).c_str(), t.exhaustVelocity);
+			add(line);
+		}
+		if (_type.gyroTorque > 0.0)
+		{
+			snprintf(line, sizeof(line), "Gyroscope: turns its ship with %.0f kN m", _type.gyroTorque / 1000.0);
+			add(line);
+		}
+		if (_type.helm)
+			add("Flight console: a ship takes orders while one has power");
+		if (_type.dock.isDock)
+			add("Docking point: a ship docks here (its own docking point facing this one)");
+		if (_type.frame)
+			add("Frame: open structure outside the hull (no air)");
+		return text;
+	}
+}

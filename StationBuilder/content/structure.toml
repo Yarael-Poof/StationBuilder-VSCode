@@ -15,6 +15,17 @@ art = "tiles/floor64.png"
 blocked = "cannot place another floor"
 thermal = { mass = 5000 }     # J/K: the deck and the air above it
 
+# A frame: open structure outside the hull (no air in it). Cables, pipes, tubes and pumps run along frames, and tanks,
+# containers, radiators and engines mount on them.
+[item.frame]
+name = "Frame"
+tab = "Floors"
+layer = "floor"
+art = "tiles/frame.png"
+frame = true
+kg = 150
+blocked = "cannot place a frame here: the tile already has a floor or frame"
+
 # Walls: one per edge. Only wallUL is in the menu; R turns it through the others (see [turns.Wall]).
 [item.wallUL]
 name = "Wall UL"

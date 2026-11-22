@@ -468,6 +468,8 @@ bool isometricLevel::mountedOutside(const std::vector<sf::Vector2i>& _tiles) con
 	{
 		if (below && below->hasFloor(at))
 			return true;   //on the roof of the deck below
+		if (isInLevel(at) && levelTiles[size_t(at.x - 1) + size_t(levelSizeW) * size_t(at.y - 1)].hasFrame())
+			return true;   //on a frame
 		for (int side = 0; side < 4; side++)
 		{
 			const sf::Vector2i next = at + footprint::step(side);
@@ -494,6 +496,17 @@ void isometricLevel::draw(sf::RenderWindow& _window)
 			continue;
 		levelTiles[i].drawAllObjects(_window);
 		
+	}
+}
+
+void isometricLevel::drawBuilt(sf::RenderWindow& _window, const sf::RenderStates& _states)
+{
+	for (int i = 0; i < int(levelTiles.size()); i++)
+	{
+		if (!area.empty() && (size_t(i) >= area.size() || !area[i]))
+			continue;
+		if (levelTiles[i].hasAnything())
+			levelTiles[i].drawBuiltObjects(_window, _states);
 	}
 }
 

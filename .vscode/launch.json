@@ -24,6 +24,30 @@
       "environment": [],
       "console": "integratedTerminal",
       "preLaunchTask": "CMake: build README screenshots"
+    },
+    {
+      "name": "2D lighting prototype (SFML)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${command:cmake.buildDirectory}/Lighting2DDemo.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/StationBuilder",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "CMake: build the 2D lighting prototype"
+    },
+    {
+      "name": "3D prototype (raylib)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/raylib3d/Raylib3DDemo.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}/prototypes/raylib3d",
+      "environment": [],
+      "console": "integratedTerminal",
+      "preLaunchTask": "Build the 3D prototype (raylib)"
     }
   ]
 }

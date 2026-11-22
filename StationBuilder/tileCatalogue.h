@@ -203,6 +203,79 @@ struct portInfo
 const char* portKindName(portInfo::kind _kind);
 const char* portFlowName(portInfo::direction _flow);
 
+//a ship's main engine (content: engine = { newtons, exhaust_velocity, fuel, pushes }): it pushes the ship towards one
+//side of its grid (pushes, unturned: "UL", "UR", "LL" or "LR"; R turns it), burning fuel, a liquid it takes through its
+//liquid port, at newtons / exhaust_velocity kg/s. its power (electrical.load) is only drawn while it fires. with no
+//fuel it is electric: it runs on its power alone (full thrust at full power), burning nothing
+struct engineProperties
+{
+	double newtons = 0.0;          //full thrust
+	double exhaustVelocity = 0.0;  //m/s: how far a kg of fuel goes (the rocket equation's v_e); unused when electric
+	std::string fuel;              //the liquid it burns (a material's key); "" = electric
+	int pushes = 0;                //0 UL, 1 UR, 2 LL, 3 LR, unturned
+	bool isEngine() const { return newtons > 0.0; }
+	bool electric() const { return fuel.empty(); }
+};
+
+//a docking point (content: dock = { tile = [x, y], face = "LR" }): a ship docks here, its own docking point's face
+//against this one's (the faces opposite each other, the two grids square). tile is a tile of its footprint, face the
+//outside face of that tile it docks on; both turn with the item
+struct dockProperties
+{
+	bool isDock = false;
+	sf::Vector2i cell;          //unturned
+	int face = 3;               //0 UL, 1 UR, 2 LL, 3 LR, unturned
+};
+
+//what drives a light, or steam and smoke (content: follows = "power" ...)
+//  power:   its share of its rated power (a lamp, a heater: off while its thermostat has it off)
+//  running: a generator: its colour while it runs, red and blinking while it is switched off or has tripped
+//  working: a machine that makes things: how fast it works
+//  always:  always on
+//  blink:   a beacon, a short flash every second or so
+enum class lightDriver { power, running, working, always, blink };
+const char* lightDriverName(lightDriver _driver);
+//the driver with this name, or -1
+int lightDriverFromName(const std::string& _name);
+
+//the light an item gives, and which parts of its art glow (content: light = { colour, brightness, reach, height,
+//follows, flicker, emergency, glow }). the lighting (lighting.h) draws it: it lights the room the item is in
+struct lightProperties
+{
+	bool gives = false;                         //it has a light table
+	sf::Color colour = sf::Color(255, 255, 255);
+	double brightness = 1.0;                    //1: a lamp's. 0: its art glows, but it lights nothing round it
+	double reach = 6.0;                         //m: how far its light reaches
+	double height = 20.0;                       //px above the floor diamond: where the light is in its art
+	lightDriver follows = lightDriver::power;
+	double flicker = 0.0;                       //0..1: firelight
+	bool emergency = false;                     //a lamp: it pulses red while its power has failed
+	double glow = 0.8;                          //its art's pixels at least this bright (0..1, and coloured or near white)
+	                                            //glow, unless it has a <art>_glow.png. 0: nothing glows
+};
+
+//steam or smoke an item gives off (content: emits = { kind, at, follows, rate })
+struct emitProperties
+{
+	std::string kind;                           //"steam" or "smoke"; "" for none
+	sf::Vector2f at = sf::Vector2f(-1.f, -1.f); //where in its art (px from its top left, unturned); below 0: the art's top
+	lightDriver follows = lightDriver::always;
+	double rate = 1.0;                          //1: a puff of steam 12 times a second, of smoke 7 times
+	bool emits() const { return !kind.empty(); }
+};
+
+//manoeuvring thrusters (content: thrusters = { newtons, exhaust_velocity, fuel }): small jets that push the ship any
+//way, through its centre of mass (so they don't turn it), for fine moves. fuel through their liquid port; with no fuel
+//they are electric, on their power alone
+struct thrusterProperties
+{
+	double newtons = 0.0;          //in each direction
+	double exhaustVelocity = 0.0;
+	std::string fuel;              //"" = electric
+	bool isThruster() const { return newtons > 0.0; }
+	bool electric() const { return fuel.empty(); }
+};
+
 //one entry per thing that can be placed on a tile. the build menu, the placement rules, the save/load keys
 //and the simulations all come from this list, which is read from the content files (StationBuilder/content/*.toml,
 //see content.h and content/README.md): a new item is a new [item.<key>] table there, no code
@@ -225,6 +298,17 @@ struct tileTypeInfo
 	//hull (a floored tile next to it on the same deck) or on the roof of the deck below. everything else needs a floor or wall
 	bool outside = false;
 	double maxTemperature = 0.0;            //recipes stop while its tiles' air is hotter than this (C); 0 = no limit
+	//a frame (content: frame = true, a floor): open structure, outside the hull. it holds no air, and takes what can be
+	//out in the open: cables, pipes, item tubes, risers, pumps, and anything mounted outside
+	bool frame = false;
+	double kg = -1.0;                       //its own mass (content: kg); below 0: a default for its layer (shipTuning)
+	engineProperties engine = {};           //a ship's main engine
+	thrusterProperties thrusters = {};      //manoeuvring thrusters
+	double gyroTorque = 0.0;                //N m a gyroscope turns its ship with (content: gyroscope = { newton_metres })
+	dockProperties dock = {};               //a docking point
+	bool helm = false;                      //a flight console: a ship takes orders only with one that has power
+	lightProperties light = {};             //the light it gives, and what of its art glows (lighting.h)
+	emitProperties emits = {};              //steam or smoke it gives off
 
 	std::string art;            //image file, relative to the game folder (where tiles/ is)
 	//how the art shows its links (see lineArt.h): "" as it is; "cross": four-way art cut down to the arms it links
@@ -408,6 +492,25 @@ namespace storage
 	//takes up to _kg of a material out. returns the kg that came out
 	double take(tileObject& _store, const std::string& _material, double _kg);
 	void empty(tileObject& _store);
+}
+
+//a ship's parts and frames, in words: "Engine: 120 kN, burns 13.3 kg/s of Propellant (exhaust 9000 m/s)", "Electric
+//engine: 15 kN on its power alone", thrusters, gyroscope, flight console, frame (a line each). "" for none of them
+namespace shipParts
+{
+	std::string summary(const tileTypeInfo& _type);
+	//an item's own mass when its content file gives none (kg)
+	const double floorKg = 400.0;
+	const double wallKg = 150.0;
+	const double frameKg = 100.0;
+	const double lineKg = 20.0;      //a tile of cable, pipe or tube
+	const double fixtureKg = 300.0;
+	double defaultKg(const tileTypeInfo& _type);
+	//its own mass: its content file's kg, or the default for what it is
+	double kg(const tileTypeInfo& _type);
+	//a placed docking point: the tile it docks at and the face, as turned. _tile is the tile the object was found on
+	//(a machine: any of its tiles). false if it isn't a dock
+	bool placedDock(const tileObject& _object, sf::Vector2i _tile, sf::Vector2i& _dockTile, int& _face);
 }
 
 //machines: footprints, turns and ports. a machine's turn (0..3 quarter turns clockwise on screen) is its hidden "r"

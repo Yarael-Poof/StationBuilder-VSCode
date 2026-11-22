@@ -15,6 +15,23 @@ namespace
 	{
 		return _object->type && (_object->type->electrical.conductor || _object->type->items.tube || isPlainPipe(*_object->type));
 	}
+
+	//what can go on a frame, out in the open: cables, pipes, item tubes and their risers, and pumps (things mounted
+	//outside go there too: see canPlaceInstead). not what needs air or a deck under it
+	bool goesOnFrame(const tileTypeInfo& _type)
+	{
+		return _type.electrical.conductor || isPlainPipe(_type) || _type.items.tube || _type.fluid.pump;
+	}
+}
+
+bool tile::hasFloor() const
+{
+	return floorSlot != nullptr && !(floorSlot->type && floorSlot->type->frame);
+}
+
+bool tile::hasFrame() const
+{
+	return floorSlot != nullptr && floorSlot->type && floorSlot->type->frame;
 }
 
 tile::tile(sf::Vector2f _worldPosition, textureManager* _textureMaster, std::string _tileObjectCSVList)
@@ -122,11 +139,14 @@ bool tile::canPlaceInstead(const tileTypeInfo& _type, const tileObject* _replaci
 	//unknown key isn't); the ones already placed stay
 	if (_type.removed)
 		return false;
-	//outside the hull: a bare tile (no floor). inside: a floor or wall to sit on
-	if (_type.outside ? floorSlot != nullptr || _type.layer != tileLayer::fixture : !canPlace(_type.layer, _type.wallEdge))
+	//outside the hull: a bare tile (no floor) or a frame. inside: a floor or wall to sit on
+	if (_type.outside ? (floorSlot != nullptr && !hasFrame()) || _type.layer != tileLayer::fixture : !canPlace(_type.layer, _type.wallEdge))
 		return false;
-	//nor a floor under something mounted outside (it would be inside then)
-	if (_type.layer == tileLayer::floor)
+	//on a frame, only what can be out in the open
+	if (!_type.outside && _type.layer == tileLayer::fixture && hasFrame() && !goesOnFrame(_type))
+		return false;
+	//nor a floor under something mounted outside (it would be inside then). a frame is fine: it holds it up
+	if (_type.layer == tileLayer::floor && !_type.frame)
 	{
 		for (const tileObject* fixture : fixtureSlots)
 			if (fixture->type && fixture->type->outside)
@@ -275,6 +295,14 @@ void tile::drawAllObjects(sf::RenderWindow& _window)
 		_window.draw(*object);
 	}
 }
+void tile::drawBuiltObjects(sf::RenderWindow& _window, const sf::RenderStates& _states) const
+{
+	forEachObject([&](tileObject* _object) {
+		if (_object != backgroundSlot)
+			_window.draw(*_object, _states);
+	});
+}
+
 void tile::printAllObjectsInTile()
 {
 	std::vector<tileObject*> objects = allObjects();

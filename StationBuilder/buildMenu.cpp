@@ -352,6 +352,9 @@ void buildMenu::draw(textureManager* _textures)
 		const std::string thermalText = thermal::summary(chosen->thermal);
 		if (!thermalText.empty())
 			ImGui::TextColored(ImVec4(0.75f, 0.85f, 0.95f, 1.f), "%s", thermalText.c_str());
+		const std::string shipText = shipParts::summary(*chosen);
+		if (!shipText.empty())
+			ImGui::TextColored(uiTheme::info, "%s", shipText.c_str());
 		const std::string recipeText = recipes::summary(*chosen);
 		if (!recipeText.empty())
 		{

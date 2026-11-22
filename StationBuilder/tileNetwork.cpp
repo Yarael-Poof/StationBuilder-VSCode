@@ -36,7 +36,8 @@ const networkMedium electricalMedium = { "electrical", electricalHasNode, electr
 
 namespace
 {
-	bool isFloor(const tileObject& _object) { return _object.type->layer == tileLayer::floor; }
+	//a floor holds air; a frame (open structure) doesn't
+	bool isFloor(const tileObject& _object) { return _object.type->layer == tileLayer::floor && !_object.type->frame; }
 }
 
 const networkMedium thermalMedium = { "thermal", isFloor, isFloor, isFloor };

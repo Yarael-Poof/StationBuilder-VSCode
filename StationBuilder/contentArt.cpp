@@ -57,33 +57,44 @@ namespace content
 
 	const report& reload(const std::string& _folder, station& _station, textureManager& _textures)
 	{
+		return reload(_folder, std::vector<station*>{ &_station }, _textures);
+	}
+
+	const report& reload(const std::string& _folder, const std::vector<station*>& _stations, textureManager& _textures)
+	{
 		//every placed object's settings, read while the definitions they were made with are still in place (parts of big
 		//machines keep nothing of their own: they read their machine's)
 		std::map<tileObject*, std::string> saved;
-		forEachPlaced(_station, [&](tileObject* _object) {
-			if (!_object->isPart())
-				saved[_object] = _object->settingsText();
-		});
+		for (station* s : _stations)
+		{
+			forEachPlaced(*s, [&](tileObject* _object) {
+				if (!_object->isPart())
+					saved[_object] = _object->settingsText();
+			});
+		}
 
 		load(_folder);
 		loadArt(_textures);
 
 		//each object takes its (possibly changed) definition: its settings put back by key (ones the item no longer
 		//has are dropped), then every picture is put back (line pieces get their arms back when lineArt::update next runs)
-		forEachPlaced(_station, [&](tileObject* _object) {
-			if (_object->isPart())
-				return;
-			_object->setTypeFromKey(_object->tileTextureKey);
-			_object->applySettingsText(saved[_object]);
-		});
-		forEachPlaced(_station, [&](tileObject* _object) {
-			if (_object->isPart())
-				_object->type = _object->owner->type;
-		});
-		for (int lv = 0; lv < _station.getLayerListSize(); lv++)
+		for (station* s : _stations)
 		{
-			_station.getIsoLevel(float(lv))->refreshSprites();
-			_station.getIsoLevel(float(lv))->markChanged();
+			forEachPlaced(*s, [&](tileObject* _object) {
+				if (_object->isPart())
+					return;
+				_object->setTypeFromKey(_object->tileTextureKey);
+				_object->applySettingsText(saved[_object]);
+			});
+			forEachPlaced(*s, [&](tileObject* _object) {
+				if (_object->isPart())
+					_object->type = _object->owner->type;
+			});
+			for (int lv = 0; lv < s->getLayerListSize(); lv++)
+			{
+				s->getIsoLevel(float(lv))->refreshSprites();
+				s->getIsoLevel(float(lv))->markChanged();
+			}
 		}
 		return lastReport();
 	}

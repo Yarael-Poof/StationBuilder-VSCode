@@ -31,6 +31,9 @@
 #include "content.h"
 #include "contentPanel.h"
 #include "contentEditor.h"
+#include "world.h"
+#include "navView.h"
+#include "lighting.h"
 #include "fps.h"
 #include <iostream>
 #include <cstdio>
@@ -307,6 +310,10 @@ int main()
     gui::guiFonts fonts;
     screenEffects screen;           // the GUI's glow and scanlines (F8), and its power-on as the game starts
     textDecode decoder;             // new text types itself in, flickering through random characters (with the effects)
+    // the deck view lit (lighting.h): lamps and machines light their rooms, the art's bright parts glow, steam, smoke and
+    // sparks. F9 turns it on and off, Shift+F9 opens its settings
+    lighting::renderer lighting;
+    bool showLightingPanel = false;
     if (!gui::loadFonts(fonts, panelScale))
         return EXIT_FAILURE;
     gui::applyStyle();
@@ -327,6 +334,7 @@ int main()
     const sf::Texture blueprintIcon = gui::loadIcon("gui/blueprint.png");
     const sf::Texture decksIcon = gui::loadIcon("gui/decks.png");
     const sf::Texture exteriorIcon = gui::loadIcon("gui/exterior.png");
+    const sf::Texture navIcon = gui::loadIcon("gui/nav.png");
 
     simulationManager simulation;   // fixed 10 Hz tick for the electrical (later thermal, liquid) simulations
     buildMenu buildBar;             // the panel along the bottom: tabs, item icons and a preview
@@ -335,6 +343,9 @@ int main()
     // the decks: each one's area (any shape) and adding or taking them away (D); the station seen from outside (O)
     deckPanel deckTools;
     bool showExterior = false;
+    // the nav map (N): the station and the ships from above, where ships are flown (navView.h)
+    navMap nav;
+    bool showNav = false;
     buildBar.setScale(panelScale, fonts.panel);
     bool showTilePositions = false; // debug option: overlay each tile's index + world position
     bool showPowerNetwork = false;  // debug option: draw the electrical network's links, coloured by network
@@ -380,37 +391,19 @@ int main()
         std::cout << "[ERROR] the content files have no usable \"empty\" item (the blank tile every level is made of)\n";
         return EXIT_FAILURE;
     }
-    std::uint64_t lineArtRevision = 0;   // the station revision the line pieces were last drawn for
 
 
 
-    station HaxelPort(&textureMaster);
-    HaxelPort.setStationName("Haxel_Port");   // save and load use this name; a future dialog can change it
-    // a new game: a small walled room on the lowest deck, an octagonal deck above it to build on (decks.h)
-    decks::startingStation(HaxelPort);
-
-    // the AC electrical simulation: rebuilds its circuits when the station changes, solves every tick
-    electricalNetwork power(HaxelPort);
-    simulation.addSystem(&power);
-    // the heat simulation: every floored tile's temperature. added after the electrical network so each tick it
-    // uses that tick's heat from cables, lights, heaters and generators
-    // the liquid simulation: pipes, pumps (powered by the electrical network), tanks and heat exchangers
-    fluidNetwork liquid(HaxelPort, &power);
-    simulation.addSystem(&liquid);
-    thermalNetwork heat(HaxelPort, &power);
-    heat.addHeatSource(&liquid);    // heat exchangers warm or cool their tiles' air
-    liquid.setTemperatureSource(&heat);
-    simulation.addSystem(&heat);
-    // and back the other way: heaters' thermostats, hot generators and cable temperatures read the tile temperatures
-    power.setTemperatureSource(&heat);
-    // the item tubes: move solids between containers' item ports
-    logisticsNetwork items(HaxelPort);
-    simulation.addSystem(&items);
-    // machines that make things: after the others, so each tick they work with that tick's power, liquids and items.
-    // an idle one switches its power off; a working one may give off heat
-    processingSystem machines(HaxelPort, &power, &liquid, &heat);
-    simulation.addSystem(&machines);
-    heat.addHeatSource(&machines);
+    // everything in the local area: the station, and the ships (world.h). each vessel has its own decks and its own
+    // simulations (power, liquids, heat, item tubes, machines, flight), all on the one clock. the screen shows one of
+    // them at a time; the nav map (N) shows them all
+    world universe(textureMaster, simulation);
+    // a new game: the station (save and load use its name) with a small walled room on its lowest deck and an
+    // octagonal deck above it to build on (decks.h)
+    vessel& homeStation = universe.add("Haxel_Port", false);
+    decks::startingStation(homeStation.layout);
+    // a content change saved from the editor reaches the station and every ship
+    editor.allStations = [&]() { return universe.stations(); };
 
     //isometricLevel layerOne(&textureMaster,40,40,64);
     //layerOne.fillFloors();
@@ -423,8 +416,8 @@ int main()
     // build and delete are mutually exclusive: turning delete on switches build off
     auto setDeleteMode = [&](bool _on) {
         deleteMode = _on;
-        if (_on && HaxelPort.getBuildMode())
-            HaxelPort.toggleBuildMode();
+        if (_on && universe.viewed().layout.getBuildMode())
+            universe.viewed().layout.toggleBuildMode();
         if (_on)
         {
             blueprintMaker.stop();
@@ -433,8 +426,8 @@ int main()
     };
     // the copy tool and placing a copy or blueprint switch building, bulldozing and the deck area tools off
     auto leaveBuildModes = [&]() {
-        if (HaxelPort.getBuildMode())
-            HaxelPort.toggleBuildMode();
+        if (universe.viewed().layout.getBuildMode())
+            universe.viewed().layout.toggleBuildMode();
         deleteMode = false;
         deckTools.stopTool();
     };
@@ -443,16 +436,70 @@ int main()
         showExterior = _on;
         if (_on)
         {
+            showNav = false;
             leaveBuildModes();
             blueprintMaker.stop();
             selection.clear();
         }
     };
+    // the nav map: every tool off and no tile selected, as outside. it starts on the vessel on screen
+    auto setNav = [&](bool _on) {
+        showNav = _on;
+        if (_on)
+        {
+            showExterior = false;
+            leaveBuildModes();
+            blueprintMaker.stop();
+            selection.clear();
+            nav.picked = universe.viewedNumber();
+        }
+    };
+    // the Load popup's answer: loaded at the start of the next frame, before anything that frame holds a vessel
+    bool loadRequested = false;
 
     sf::View view(window.getDefaultView());
     window.clear(sf::Color::White);
     while (window.isOpen())
     {
+        // loading, and switching which vessel is on screen, happen here, before this frame takes hold of a vessel
+        if (loadRequested)
+        {
+            loadRequested = false;
+            leaveBuildModes();
+            blueprintMaker.stop();
+            selection.clear();
+            worldFiles::load(universe, gameMaster, textureMaster);
+        }
+        if (const int next = universe.takeViewChange(); next >= 0 && next != universe.viewedNumber())
+        {
+            vessel& from = universe.viewed();
+            from.camera = window.getView();
+            from.cameraSet = true;
+            leaveBuildModes();
+            blueprintMaker.stop();
+            selection.clear();
+            universe.setViewed(next);
+            vessel& to = universe.viewed();
+            if (to.cameraSet)
+                window.setView(to.camera);
+            else
+            {
+                // the first look at it: centred on its middle
+                sf::View first(sf::FloatRect(0.f, 0.f, float(window.getSize().x), float(window.getSize().y)));
+                const sf::Vector2<double> middle = to.flight.centreOnGrid();
+                first.setCenter(to.layout.getCurrentIsoLevel()->tileCentreWorld(sf::Vector2f(float(middle.x), float(middle.y))));
+                window.setView(first);
+            }
+        }
+        // the vessel on screen this frame: building, the tile panel and the views below all work on it
+        vessel& here = universe.viewed();
+        station& HaxelPort = here.layout;
+        electricalNetwork& power = here.power;
+        fluidNetwork& liquid = here.liquid;
+        thermalNetwork& heat = here.heat;
+        logisticsNetwork& items = here.items;
+        processingSystem& machines = here.machines;
+
         // true while the cursor is over a GUI widget: world input is ignored then
         const bool guiWantsMouse = ImGui::GetIO().WantCaptureMouse;
         // true for one frame when the left button goes down (a press event, not a held button),
@@ -464,6 +511,9 @@ int main()
         {
             // Pass the event to the GUI
             ImGui::SFML::ProcessEvent(window, event);
+            // the nav map takes the mouse while it is open (zoom, move, pick a vessel, send a ship)
+            if (showNav && event.type != sf::Event::Closed && nav.handleEvent(event, universe, guiWantsMouse))
+                continue;
             if (event.type == sf::Event::Closed)
             {
                 window.close();
@@ -532,6 +582,8 @@ int main()
                     // panel closes
                     if (deckTools.escape() || blueprintMaker.escape())
                         ;
+                    else if (showNav)
+                        setNav(false);
                     else if (showExterior)
                         setExterior(false);
                     else if (HaxelPort.getBuildMode())
@@ -544,7 +596,7 @@ int main()
                 else if (event.key.code == sf::Keyboard::F5)
                 {
                     // the content files again: every item's numbers, art and settings, live
-                    const content::report& report = content::reload(contentFolder, HaxelPort, textureMaster);
+                    const content::report& report = content::reload(contentFolder, universe.stations(), textureMaster);
                     contentWindow.notice(content::summaryLine(report), report.errors() > 0);
                     if (report.errors() > 0)
                         contentWindow.open();
@@ -573,11 +625,24 @@ int main()
                         contentWindow.notice(screen.enabled ? "screen effects on (F8)" : "screen effects off (F8)", false);
                     }
                 }
+                else if (event.key.code == sf::Keyboard::F9)
+                {
+                    // F9: the deck lit or as the art is drawn; Shift+F9: the lighting's settings
+                    if (event.key.shift)
+                        showLightingPanel = !showLightingPanel;
+                    else
+                    {
+                        lighting.options.enabled = !lighting.options.enabled;
+                        contentWindow.notice(lighting.options.enabled ? "lighting on (F9; Shift+F9: its settings)" : "lighting off (F9)", false);
+                    }
+                }
                 else if (!ImGui::GetIO().WantTextInput)   // leave these keys alone while typing into a text box
                 {
                     const bool zoomIn = event.key.code == sf::Keyboard::Equal || event.key.code == sf::Keyboard::Add;
                     const bool zoomOut = event.key.code == sf::Keyboard::Hyphen || event.key.code == sf::Keyboard::Subtract;
-                    if (event.key.control && (zoomIn || zoomOut))
+                    if (showNav && nav.isFlyingKey(event.key.code))
+                        ;   // flying the picked ship: the keys are read each frame (navMap::readControls)
+                    else if (event.key.control && (zoomIn || zoomOut))
                     {
                         // GUI scale: the fonts are reloaded before the next frame starts
                         const float newScale = std::clamp(panelScale + (zoomIn ? gui::panelScaleStep : -gui::panelScaleStep),
@@ -614,6 +679,8 @@ int main()
                     }
                     else if (event.key.code == sf::Keyboard::O)
                         setExterior(!showExterior);
+                    else if (event.key.code == sf::Keyboard::N)
+                        setNav(!showNav);
                     else if (event.key.code == sf::Keyboard::D)
                         deckTools.toggle();
                     else if (event.key.code == sf::Keyboard::B)
@@ -667,6 +734,7 @@ int main()
         if (gui::iconButton("downLayer", downIcon, ImVec2(4, 90)))
             HaxelPort.decCurrentLevel();
         if (gui::iconButton("build", buildIcon, ImVec2(4, 160))) {
+            showNav = false;
             HaxelPort.toggleBuildMode();
             if (HaxelPort.getBuildMode())
             {
@@ -701,10 +769,12 @@ int main()
             deckTools.toggle();
         if (gui::iconToggle("exterior", exteriorIcon, ImVec2(56, 352), showExterior))
             setExterior(!showExterior);
+        if (gui::iconToggle("navMap", navIcon, ImVec2(108, 352), showNav))
+            setNav(!showNav);
         if (gui::iconButton("bug", bugIcon, ImVec2(4, 230)))
             HaxelPort.toggleDebugMode();
         if (gui::iconButton("save", saveIcon, ImVec2(4, 480)))
-            gameMaster.saveStationToDisc(&HaxelPort, HaxelPort.getStationName());
+            worldFiles::save(universe, gameMaster);   // the station's decks, every ship's, and where the ships are
         if (gui::iconButton("load", loadStationIcon, ImVec2(56, 480)))
             ImGui::OpenPopup("Load station?");
         // the right-hand column: time controls, then the power view's key, then the selected tile's panel
@@ -712,7 +782,9 @@ int main()
         // outside: the deck under the mouse
         const int exteriorHover = showExterior && !guiWantsMouse ?
             exteriorView::deckAt(HaxelPort, window.mapPixelToCoords(sf::Mouse::getPosition(window), window.getView())) : -1;
-        if (showExterior)
+        if (showNav)
+            rightColumnBottom = nav.drawPanel(universe, rightColumnBottom + 8.f * panelScale, panelScale, fonts.panel);
+        else if (showExterior)
             rightColumnBottom = exteriorView::drawLegend(HaxelPort, exteriorHover, rightColumnBottom + 8.f * panelScale, panelScale, fonts.panel);
         else if (showPowerView)
             rightColumnBottom = powerView::drawLegend(power, rightColumnBottom + 8.f * panelScale, panelScale, fonts.panel);
@@ -723,6 +795,15 @@ int main()
         else if (showItemsView)
             rightColumnBottom = logisticsView::drawLegend(items, rightColumnBottom + 8.f * panelScale, panelScale, fonts.panel, &machines);
         selection.draw(HaxelPort, power, &heat, &liquid, rightColumnBottom + 8.f * panelScale, panelScale, fonts.panel, &items, &machines);
+        // the nav map behind the GUI. "Go inside" closes it (the screen switches vessel at the start of the next frame);
+        // while it is open the flying keys steer the picked ship
+        if (showNav)
+            nav.draw(universe, panelScale, fonts.panel);
+        if (nav.takeGoInside())
+            setNav(false);
+        nav.readControls(universe, showNav && window.hasFocus() && !ImGui::GetIO().WantTextInput);
+        // which vessel is on screen
+        gui::label(ImVec2(60, 26), ImVec2(150, 18), here.name);
         // the Blueprints menu, and what the copy tool or placing is doing
         blueprintMaker.drawPanels(HaxelPort, textureMaster, panelScale, fonts.panel);
         if (blueprintMaker.current() == blueprintTool::mode::placing && (HaxelPort.getBuildMode() || deleteMode))
@@ -747,11 +828,11 @@ int main()
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 10));
         if (ImGui::BeginPopupModal("Load station?", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::Text("Load \"%s\"?", HaxelPort.getStationName().c_str());
-            ImGui::Text("This replaces the current station. Unsaved changes will be lost.");
+            ImGui::Text("Load \"%s\"?", universe.home().layout.getStationName().c_str());
+            ImGui::Text("This replaces the current station and its ships. Unsaved changes will be lost.");
             if (ImGui::Button("Load", ImVec2(120, 0)))
             {
-                gameMaster.loadStationFromDisc(&HaxelPort, HaxelPort.getStationName(), &textureMaster);
+                loadRequested = true;   // at the start of the next frame
                 ImGui::CloseCurrentPopup();
             }
             ImGui::SameLine();
@@ -771,7 +852,7 @@ int main()
         // the tile under the mouse cursor: the one whose floor diamond the cursor is in (may be off the map)
         const sf::Vector2i mousePixel = sf::Mouse::getPosition(window);
         const sf::Vector2i hoveredTile = HaxelPort.getCurrentIsoLevel()->tileAtWorld(window.mapPixelToCoords(mousePixel, window.getView()));
-        const bool hoveredInLevel = HaxelPort.getCurrentIsoLevel()->isInLevel(hoveredTile);
+        const bool hoveredInLevel = !showNav && HaxelPort.getCurrentIsoLevel()->isInLevel(hoveredTile);
         // the copy tool's drag, or a click placing a copy or blueprint; the tiles it has selected tinted
         blueprintMaker.update(HaxelPort, hoveredTile, hoveredInLevel, leftClicked, sf::Mouse::isButtonPressed(sf::Mouse::Left), guiWantsMouse);
         blueprintMaker.highlight(HaxelPort, hoveredTile, hoveredInLevel);
@@ -811,6 +892,7 @@ int main()
         // F6: the content files' items, materials and problems; and the notice after an F5 reload
         contentWindow.draw(&textureMaster, panelScale, fonts.panel);
         editor.draw(HaxelPort, textureMaster, contentWindow, panelScale, fonts.panel);
+        lighting.drawPanel(showLightingPanel, panelScale, fonts.panel);
 
         // the electrical network: catch up straight away if anything was built, bulldozed or set this frame (the
         // tick may be paused)
@@ -826,15 +908,15 @@ int main()
             HaxelPort.setCurrentLevel(exteriorHover);
             showExterior = false;
         }
-        else if (leftClicked && !guiWantsMouse && !HaxelPort.getBuildMode() && !deleteMode && !blueprintMaker.active() && !deckTools.active() && !showExterior)
+        else if (leftClicked && !guiWantsMouse && !HaxelPort.getBuildMode() && !deleteMode && !blueprintMaker.active() && !deckTools.active() && !showExterior && !showNav)
         {
             if (hoveredInLevel)
                 selection.select(HaxelPort.getCurrentLevel(), hoveredTile);
             else
                 selection.clear();
         }
-        if (showExterior)
-            ;   // the views are of the deck shown, not the outside
+        if (showExterior || showNav)
+            ;   // the views are of the deck shown, not the outside or the map
         else if (showPowerView)
             powerView::drawOverlay(power, HaxelPort.getCurrentLevel(), HaxelPort.getCurrentIsoLevel(), window, powerAnimationSeconds);
         else if (showHeatView)
@@ -844,7 +926,7 @@ int main()
         else if (showItemsView)
             logisticsView::drawOverlay(items, HaxelPort.getCurrentLevel(), HaxelPort.getCurrentIsoLevel(), window, powerAnimationSeconds, fonts.panel,
                 &machines);
-        if (!showExterior)
+        if (!showExterior && !showNav)
         {
             selection.drawOutline(HaxelPort, HaxelPort.getCurrentLevel(), window);
             // where the deck can be built, and the hull of the deck below
@@ -875,8 +957,9 @@ int main()
         }
         // generator warnings show all the time, on top of the power view; the inspector follows the mouse in the
         // power view (or the debug wiring view)
-        powerView::drawAlerts(power, HaxelPort.getCurrentLevel(), HaxelPort.getCurrentIsoLevel(), window, fonts.panel);
-        if (showExterior)
+        if (!showNav)
+            powerView::drawAlerts(power, HaxelPort.getCurrentLevel(), HaxelPort.getCurrentIsoLevel(), window, fonts.panel);
+        if (showExterior || showNav)
             ;
         else if ((showPowerView || (HaxelPort.getDebugMode() && showPowerNetwork)) && !guiWantsMouse && hoveredInLevel)
             powerView::drawInspector(power, HaxelPort.getCurrentLevel(), hoveredTile, fonts.panel);
@@ -889,15 +972,80 @@ int main()
         gui::label(ImVec2(13, 70), ImVec2(30, 18), std::to_string(HaxelPort.getCurrentLevel()), true);
 
         // cables and pipes show arms only towards what they link to: redo their art whenever the station changes
-        if (HaxelPort.getRevision() != lineArtRevision)
+        if (HaxelPort.getRevision() != here.lineArtRevision)
         {
             lineArt::update(HaxelPort, textureMaster);
-            lineArtRevision = HaxelPort.getRevision();
+            here.lineArtRevision = HaxelPort.getRevision();
         }
-        if (showExterior)
-            exteriorView::draw(window, HaxelPort, exteriorHover);
+        // vessels docked beside the one on screen (its docked ships, or the station it is docked to): drawn moved onto its
+        // grid, their line pieces kept up to date as its own are
+        const std::vector<besideVessel> alongside = universe.beside(here);
+        for (const besideVessel& b : alongside)
+        {
+            if (b.other->layout.getRevision() != b.other->lineArtRevision)
+            {
+                lineArt::update(b.other->layout, textureMaster);
+                b.other->lineArtRevision = b.other->layout.getRevision();
+            }
+        }
+        if (showNav)
+            ;   // the nav map is drawn with the GUI
+        else if (showExterior)
+        {
+            std::vector<exteriorView::alongside> outside;
+            for (const besideVessel& b : alongside)
+                outside.push_back({ &b.other->layout, b.offset, b.deckOffset });
+            exteriorView::draw(window, HaxelPort, exteriorHover, outside);
+        }
         else
-            HaxelPort.drawLayer(window,HaxelPort.getCurrentLevel());
+        {
+            // the deck, and the deck level with it on each vessel beside it (moved onto its grid): those behind the dock
+            // first, those in front after. lit (F9), or as the art is drawn
+            const int deck = HaxelPort.getCurrentLevel();
+            std::vector<lighting::deck> shown;
+            auto addBeside = [&](bool _behind) {
+                for (const besideVessel& b : alongside)
+                {
+                    const int theirDeck = deck - b.deckOffset;
+                    if (theirDeck < 0 || theirDeck >= b.other->layout.getLayerListSize())
+                        continue;
+                    const sf::Vector2<double> middle = b.other->flight.centreOnGrid();
+                    const bool behind = middle.x + b.offset.x + middle.y + b.offset.y < double(b.dockTile.x + b.dockTile.y);
+                    if (behind != _behind)
+                        continue;
+                    isometricLevel* theirs = b.other->layout.getIsoLevel(float(theirDeck));
+                    lighting::deck d;
+                    d.level = theirs;
+                    d.levelIndex = theirDeck;
+                    d.moved.translate(HaxelPort.getCurrentIsoLevel()->tileCentreWorld(sf::Vector2f(float(1 + b.offset.x), float(1 + b.offset.y))) -
+                        theirs->tileCentreWorld(sf::Vector2f(1.f, 1.f)));
+                    d.builtOnly = true;
+                    d.power = &b.other->power;
+                    d.machines = &b.other->machines;
+                    b.other->layout.highlightAllTiles(sf::Color::White);
+                    shown.push_back(d);
+                }
+            };
+            addBeside(true);
+            lighting::deck own;
+            own.level = HaxelPort.getCurrentIsoLevel();
+            own.levelIndex = deck;
+            own.power = &power;
+            own.machines = &machines;
+            shown.push_back(own);
+            addBeside(false);
+            const bool viewOn = showPowerView || showHeatView || showLiquidView || showItemsView;
+            if (!lighting.draw(window, shown, frameTime.asSeconds(), simulation.isPaused(), viewOn))
+            {
+                for (const lighting::deck& d : shown)
+                {
+                    if (d.builtOnly)
+                        d.level->drawBuilt(window, sf::RenderStates(d.moved));
+                    else
+                        HaxelPort.drawLayer(window, deck);
+                }
+            }
+        }
         // in build mode, a see-through copy of what a click would place, turned as R has set it
         if (HaxelPort.getBuildMode() && hoveredInLevel && !guiWantsMouse)
             buildBar.drawGhost(window, HaxelPort.getCurrentIsoLevel(), hoveredTile, &textureMaster);

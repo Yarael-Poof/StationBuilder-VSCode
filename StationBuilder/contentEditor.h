@@ -23,6 +23,9 @@ class contentEditor
 {
 public:
 	explicit contentEditor(const std::string& _contentFolder);
+	//every station the content goes into when it is saved and reloaded (the station and the ships); unset: just the
+	//one draw is given
+	std::function<std::vector<station*>()> allStations;
 	void toggle() { visible = !visible; }
 	void open() { visible = true; }
 	bool isOpen() const { return visible; }
@@ -54,6 +57,8 @@ private:
 	void drawItemForm(float _s);
 	void drawMaterialForm(float _s);
 	void drawPortsTable(float _s);
+	void drawShipParts(float _s);
+	void drawLighting(float _s);
 	void drawSettings(float _s);
 	void drawRecipes(float _s);
 	void drawPreview(float _s);
@@ -74,6 +79,7 @@ private:
 	tileTypeInfo item;
 	materialInfo material;
 	bool isNew = false;
+	std::string mapMessage;      //what the last "write the normal map" did
 	std::string file;             //"content/power.toml"
 	std::string text;             //the TOML for it as it is now
 	std::string savedText;        //and as it was when opened or last saved

@@ -102,10 +102,13 @@ bases, plus a fleet of spacecraft, and build all of them in the same tile editor
 | Delete | Bulldoze mode |
 | P, T, L, I | Power, heat, liquid and logistics views |
 | O, D | Exterior view; Decks panel |
+| N | Nav map: the station and ships from above. Right click sends the picked ship there |
+| W, S, A, D, Q, E | On the nav map, fly a ship in manual: thrust, back, turn, slide |
 | C, Ctrl+C, Ctrl+V, B | Copy tool, copy, paste, Blueprints menu |
 | Esc | Step back out of the current tool |
 | F5, F6, F7 | Reload content, content panel, content editor |
 | F8, Shift+F8 | Screen effects on or off; amber or orange |
+| F9, Shift+F9 | Lighting on or off; its settings |
 | Ctrl +, Ctrl - | GUI size |
 
 ## Building

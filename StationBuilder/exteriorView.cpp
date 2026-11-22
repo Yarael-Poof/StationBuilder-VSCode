@@ -20,6 +20,7 @@ namespace
 		int count = 0;
 		const tileObject* object = nullptr;
 		float lift = 0.f;
+		sf::Vector2f shift;     //a vessel alongside: where its grid lies on the station's
 	};
 
 	sf::Color lighter(sf::Color _c, int _by)
@@ -46,7 +47,8 @@ namespace
 		look(_tile + footprint::step(_side), connections::opposite(_side));
 		return found;
 	}
-	//something mounted outside on a bare tile (a big machine once: on its front tile, where the deck view draws it)
+	//what is outside on a tile with no floor: a frame, then what is on it or mounted there (a big machine once: on its
+	//front tile, where the deck view draws it). cables, pipes and tubes on frames show too
 	template <typename F>
 	void forEachOutside(isometricLevel& _level, sf::Vector2i _tile, F&& _visit)
 	{
@@ -54,7 +56,7 @@ namespace
 		if (t.hasFloor())
 			return;
 		t.forEachObject([&](tileObject* _o) {
-			if (_o->type && _o->type->layer == tileLayer::fixture && !_o->isPart())
+			if (_o->type && ((_o->type->layer == tileLayer::fixture && !_o->isPart()) || _o->type->frame))
 				_visit(_o);
 		});
 	}
@@ -62,7 +64,7 @@ namespace
 
 namespace exteriorView
 {
-	void draw(sf::RenderWindow& _window, station& _station, int _hoveredDeck)
+	void draw(sf::RenderWindow& _window, station& _station, int _hoveredDeck, const std::vector<alongside>& _alongside)
 	{
 		//stars, fixed to the screen (drifting a little as the view moves)
 		const sf::View view = _window.getView();
@@ -86,14 +88,17 @@ namespace exteriorView
 
 		std::vector<sf::Vertex> vertices;
 		std::vector<drawable> drawables;
-		const int decks = _station.getLayerListSize();
 		const float h = deckHeight;
+		//one vessel's decks: the station's, or a ship docked beside it (its grid moved by whole tiles and decks, all sorted
+		//together so they overlap right)
+		auto addVessel = [&](station& _s, sf::Vector2i _offset, int _deckOffset, sf::Vector2f _shift, int _hovered) {
+		const int decks = _s.getLayerListSize();
 		for (int deck = 0; deck < decks; deck++)
 		{
-			isometricLevel& level = *_station.getIsoLevel(float(deck));
-			isometricLevel* above = deck + 1 < decks ? _station.getIsoLevel(float(deck + 1)) : nullptr;
-			const float z0 = float(deck) * h, z1 = z0 + h;
-			const int glow = deck == _hoveredDeck ? 28 : 0;
+			isometricLevel& level = *_s.getIsoLevel(float(deck));
+			isometricLevel* above = deck + 1 < decks ? _s.getIsoLevel(float(deck + 1)) : nullptr;
+			const float z0 = float(deck + _deckOffset) * h, z1 = z0 + h;
+			const int glow = deck == _hovered ? 28 : 0;
 			const int w = int(level.getSizeW()), rows = int(level.getSizeH());
 			for (int y = 1; y <= rows; y++)
 			{
@@ -104,17 +109,18 @@ namespace exteriorView
 					{
 						forEachOutside(level, at, [&](const tileObject* _o) {
 							drawable d;
-							d.depth = float(x + y) + float(deck) * depthPerDeck + 0.5f;
+							d.depth = float(x + _offset.x + y + _offset.y) + float(deck + _deckOffset) * depthPerDeck + 0.5f;
 							d.object = _o;
 							d.lift = z0;
+							d.shift = _shift;
 							drawables.push_back(d);
 						});
 						continue;
 					}
 					drawable d;
-					d.depth = float(x + y) + float(deck) * depthPerDeck;
+					d.depth = float(x + _offset.x + y + _offset.y) + float(deck + _deckOffset) * depthPerDeck;
 					d.start = int(vertices.size());
-					const sf::Vector2f c = level.tileCentreWorld(sf::Vector2f(at));
+					const sf::Vector2f c = level.tileCentreWorld(sf::Vector2f(at)) + _shift;
 					const sf::Vector2f top = c + sf::Vector2f(0.f, -16.f), right = c + sf::Vector2f(32.f, 0.f), bottom = c + sf::Vector2f(0.f, 16.f),
 						left = c + sf::Vector2f(-32.f, 0.f);
 					auto up = [](sf::Vector2f _p, float _z) { return _p - sf::Vector2f(0.f, _z); };
@@ -157,6 +163,16 @@ namespace exteriorView
 				}
 			}
 		}
+		};
+		addVessel(_station, sf::Vector2i(0, 0), 0, sf::Vector2f(0.f, 0.f), _hoveredDeck);
+		for (const alongside& a : _alongside)
+		{
+			if (!a.layout || a.layout->getLayerListSize() == 0 || _station.getLayerListSize() == 0)
+				continue;
+			const sf::Vector2f shift = _station.getIsoLevel(0.f)->tileCentreWorld(sf::Vector2f(float(1 + a.offset.x), float(1 + a.offset.y))) -
+				a.layout->getIsoLevel(0.f)->tileCentreWorld(sf::Vector2f(1.f, 1.f));
+			addVessel(*a.layout, a.offset, a.deckOffset, shift, -1);
+		}
 		std::stable_sort(drawables.begin(), drawables.end(), [](const drawable& _a, const drawable& _b) { return _a.depth < _b.depth; });
 
 		//from the back: runs of hull faces in one go, each outside object's picture between them
@@ -172,7 +188,7 @@ namespace exteriorView
 			{
 				flush();
 				sf::Sprite picture = *d.object;
-				picture.move(0.f, -d.lift);
+				picture.move(d.shift.x, d.shift.y - d.lift);
 				_window.draw(picture);
 				continue;
 			}
@@ -201,7 +217,7 @@ namespace exteriorView
 		const float s = _scale;
 		const ImVec2 display = ImGui::GetIO().DisplaySize;
 		//the station's numbers: hull tiles, open edges, what is outside (by name)
-		int hull = 0, open = 0;
+		int hull = 0, open = 0, frames = 0;
 		std::map<std::string, int> outside;
 		for (int deck = 0; deck < _station.getLayerListSize(); deck++)
 		{
@@ -212,7 +228,13 @@ namespace exteriorView
 					const sf::Vector2i at(x, y);
 					if (!level.hasFloor(at))
 					{
-						forEachOutside(level, at, [&](const tileObject* _o) { outside[_o->type->name]++; });
+						//what is mounted outside (not the frames, nor the cables, pipes and tubes along them)
+						forEachOutside(level, at, [&](const tileObject* _o) {
+							if (_o->type->outside)
+								outside[_o->type->name]++;
+							else if (_o->type->frame)
+								frames++;
+						});
 						continue;
 					}
 					hull++;
@@ -234,6 +256,8 @@ namespace exteriorView
 		ImGui::TextDisabled("the hull is the floors built; walled sides are plated, open ones red");
 		ImGui::Separator();
 		ImGui::Text("%d decks, %d hull tiles", _station.getLayerListSize(), hull);
+		if (frames > 0)
+			ImGui::Text("%d frame tiles", frames);
 		if (open > 0)
 			ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "%d edges open to space (no wall)", open);
 		if (outside.empty())

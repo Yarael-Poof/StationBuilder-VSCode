@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/System/Vector2.hpp>
 
@@ -15,8 +16,16 @@ namespace exteriorView
 {
 	const float deckHeight = 40.f;   //world units a deck rises above the one below (a tile's floor diamond is 64 x 32)
 
-	//draws it all (in place of the shown deck). _hoveredDeck is lit
-	void draw(sf::RenderWindow& _window, station& _station, int _hoveredDeck);
+	//another vessel drawn alongside (a ship docked to it): its tile + offset lies on the station's grid, its deck +
+	//deckOffset beside the station's
+	struct alongside
+	{
+		station* layout = nullptr;
+		sf::Vector2i offset;
+		int deckOffset = 0;
+	};
+	//draws it all (in place of the shown deck), with any vessels alongside. _hoveredDeck is lit
+	void draw(sf::RenderWindow& _window, station& _station, int _hoveredDeck, const std::vector<alongside>& _alongside = {});
 	//the deck under the mouse (its roof or near sides), -1 if none
 	int deckAt(station& _station, sf::Vector2f _mouseWorld);
 	//the view's key: decks, hull, what is outside, and the deck under the mouse. pinned to the right edge at _top.

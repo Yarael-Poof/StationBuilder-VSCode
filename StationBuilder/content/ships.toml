@@ -1,0 +1,125 @@
+# Ships' parts: engines, thrusters, gyroscopes and the flight console, and big tanks and containers to mount outside on
+# frames or beside the hull. A ship needs a powered flight console to take orders, a gyroscope to turn, engines (and
+# fuel piped to them) to move; manoeuvring thrusters make the small moves. Field reference: README.md in this folder.
+
+# The main engine: it pushes the ship towards its upper left side unturned (R turns it; the art shows its nozzle). Its
+# fuel and power come in through its two ports on that side, so mount it at the back of the ship facing the hull or a
+# frame with a pipe and a cable on it. It draws its power only while it fires.
+[item.mainEngine]
+name = "Main engine"
+tab = "Ship"
+art = ["tiles/mainEngineUL.png", "tiles/mainEngineUR.png", "tiles/mainEngineLR.png", "tiles/mainEngineLL.png"]
+mount = "outside"
+footprint = [2, 2]
+kg = 4000
+blocked = "an engine goes outside: on frames or bare tiles beside the hull, its ports facing a pipe and a cable"
+engine = { newtons = 120000, exhaust_velocity = 9000, fuel = "propellant", pushes = "UL" }
+electrical.load = { watts = 1500 }
+thermal = { mass = 4000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "liquid", flow = "in" },
+    { tile = [0, 1], side = "UL", carries = "power", flow = "in" },
+]
+
+# The electric drive: an engine with no fuel. It runs on power alone, so it never runs dry, but it is weaker than the
+# main engine and hungry for power (thrust follows the power it gets). It pushes towards its upper left side unturned;
+# its power comes in through the port on that side.
+[item.electricDrive]
+name = "Electric drive"
+tab = "Ship"
+art = ["tiles/electricDriveUL.png", "tiles/electricDriveUR.png", "tiles/electricDriveLR.png", "tiles/electricDriveLL.png"]
+mount = "outside"
+footprint = [2, 2]
+kg = 3000
+blocked = "an electric drive goes outside: on frames or bare tiles beside the hull, its power port facing a cable"
+engine = { newtons = 15000, pushes = "UL" }
+electrical.load = { watts = 3000 }
+thermal = { mass = 3000 }
+ports = [
+    { tile = [0, 1], side = "UL", carries = "power", flow = "in" },
+]
+
+# Manoeuvring thrusters: small jets pointing every way, for fine moves (they push through the ship's middle, so they
+# don't turn it). Fuel comes in through the port on the upper left side (R turns it to face the pipe).
+[item.thrusters]
+name = "Manoeuvring thrusters"
+tab = "Ship"
+art = "tiles/thrusters.png"
+mount = "outside"
+kg = 200
+blocked = "thrusters go outside: on a frame or a bare tile beside the hull, the port facing a pipe"
+thrusters = { newtons = 4000, exhaust_velocity = 2500, fuel = "propellant" }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "liquid", flow = "in" },
+]
+
+# A gyroscope (reaction wheels): turns the ship. It takes power through a cable on its tile.
+[item.gyroscope]
+name = "Gyroscope"
+tab = "Ship"
+art = "tiles/gyroscope.png"
+kg = 2500
+blocked = "cannot place a gyroscope here, it needs a floor"
+gyroscope = { newton_metres = 300000 }
+electrical.load = { watts = 1000 }
+thermal = { mass = 2500 }
+light = { colour = "#66d9ff", brightness = 0.5, reach = 3, height = 20, glow = 0.7 }
+
+# The flight console: a ship takes orders (autopilot or manual) only while one has power. Power through a cable on its tile.
+[item.flightConsole]
+name = "Flight console"
+tab = "Ship"
+art = "tiles/flightConsole.png"
+kg = 300
+blocked = "cannot place a flight console here, it needs a floor"
+helm = true
+electrical.load = { watts = 300 }
+light = { colour = "#ffad4d", brightness = 0.7, reach = 4.5, height = 25, glow = 0.7 }
+
+# A docking collar: where a ship docks. Its ring (the lower right face, unturned; R turns it) docks against a docking
+# point facing it, such as a jetty's far end. Cargo and liquids pass through its two ports on the other side, joined to
+# the ship's item tubes and pipes there.
+[item.dockingCollar]
+name = "Docking collar"
+tab = "Ship"
+art = ["tiles/dockingCollarLR.png", "tiles/dockingCollarLL.png", "tiles/dockingCollarUL.png", "tiles/dockingCollarUR.png"]
+mount = "outside"
+kg = 800
+blocked = "a docking collar goes outside: on a frame or a bare tile beside the hull, its ports facing a tube and a pipe"
+dock = { tile = [0, 0], face = "LR" }
+thermal = { mass = 800 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items" },
+    { tile = [0, 0], side = "UL", carries = "liquid" },
+]
+light = { colour = "#ffc740", brightness = 1.6, reach = 7, height = 20, follows = "blink", glow = 0.75 }   # a beacon at its dock
+
+# A propellant tank to mount outside: 4000 L, placed full. Its port on the upper left side joins a pipe across it.
+[item.propellantTank]
+name = "Propellant tank"
+tab = "Outside"
+art = "tiles/propellantTank.png"
+mount = "outside"
+footprint = [2, 2]
+kg = 1500
+blocked = "a propellant tank goes outside: on frames or bare tiles beside the hull, its port facing a pipe"
+fluid.tank = { litres = 4000, conductance = 5, liquid = "propellant" }
+thermal = { mass = 3000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "liquid" },
+]
+
+# A bulk cargo container to mount outside: 40 m3 of solids, reached through the item port on its upper left side.
+[item.bulkContainer]
+name = "Bulk cargo container"
+tab = "Outside"
+art = "tiles/bulkContainer.png"
+mount = "outside"
+footprint = [2, 2]
+kg = 3000
+blocked = "a cargo container goes outside: on frames or bare tiles beside the hull, its port facing a tube"
+storage = { litres = 40000, kg = 60000 }
+thermal = { mass = 6000 }
+ports = [
+    { tile = [0, 0], side = "UL", carries = "items" },
+]

@@ -1,6 +1,7 @@
 #include "contentEditor.h"
 #include "contentPanel.h"
 #include "contentWriter.h"
+#include "lighting.h"
 #include "machineView.h"
 #include "station.h"
 #include "textureManager.h"
@@ -642,6 +643,14 @@ void contentEditor::drawItemForm(float _s)
 		{
 			t.layer = layer == 1 ? tileLayer::floor : layer == 2 ? tileLayer::wall : layer == 3 ? tileLayer::background : tileLayer::fixture;
 			t.wallEdge = t.layer == tileLayer::wall ? std::max(t.wallEdge, 0) : -1;
+			if (t.layer != tileLayer::floor)
+				t.frame = false;
+		}
+		if (t.layer == tileLayer::floor)
+		{
+			label("Frame");
+			ImGui::Checkbox("##frame", &t.frame);
+			hint("open structure outside the hull: no air; takes cables, pipes, tubes and outside things");
 		}
 		if (t.layer == tileLayer::wall)
 		{
@@ -950,11 +959,312 @@ void contentEditor::drawItemForm(float _s)
 		}
 	}
 
+	if (section("Ship: engines, thrusters, gyroscope, mass", false))
+		drawShipParts(_s);
+	if (section("Light: its light, its glow, steam or smoke", false))
+		drawLighting(_s);
 	if (section("Settings", false))
 		drawSettings(_s);
 	if (section("Recipes (what it makes)", false))
 		drawRecipes(_s);
 	openSections = -1;
+}
+
+void contentEditor::drawLighting(float _s)
+{
+	const float wide = 300.f * _s, narrow = 110.f * _s;
+	tileTypeInfo& t = item;
+	const std::vector<std::string> drivers = { "power", "running", "working", "always", "blink" };
+	const char* const driverHints[] = { "its share of its rated power (a heater: while its thermostat has it on)",
+		"a generator: its colour while it runs, red blinking when stopped", "a machine: how fast it works", "always on",
+		"a beacon: a short flash every second or so" };
+
+	label("Light");
+	bool gives = t.light.gives;
+	if (ImGui::Checkbox("##light", &gives))
+	{
+		t.light = lightProperties();
+		t.light.gives = gives;
+		t.light.follows = t.electrical.load ? lightDriver::power : lightDriver::always;
+	}
+	hint("it lights the room it is in (walls keep the light in)");
+	if (t.light.gives)
+	{
+		lightProperties& l = t.light;
+		label("  colour");
+		float colour[3] = { l.colour.r / 255.f, l.colour.g / 255.f, l.colour.b / 255.f };
+		ImGui::SetNextItemWidth(wide);
+		if (ImGui::ColorEdit3("##lightColour", colour))
+			l.colour = sf::Color(sf::Uint8(std::lround(colour[0] * 255.f)), sf::Uint8(std::lround(colour[1] * 255.f)), sf::Uint8(std::lround(colour[2] * 255.f)));
+		label("  brightness");
+		editNumber("##lightBrightness", l.brightness, narrow, 0.0, 20.0);
+		hint("1: a lamp's. 0: it glows, but lights nothing round it");
+		label("  reach");
+		editNumber("##lightReach", l.reach, narrow, 0.1, 100.0);
+		hint("m");
+		label("  height");
+		editNumber("##lightHeight", l.height, narrow, 0.0, 255.0);
+		hint("px above the floor: where the light is in its art");
+		label("  follows");
+		int driver = int(l.follows);
+		if (pick("##lightFollows", driver, drivers, narrow))
+			l.follows = lightDriver(driver);
+		hint(driverHints[std::clamp(driver, 0, 4)]);
+		label("  flicker");
+		editNumber("##lightFlicker", l.flicker, narrow, 0.0, 1.0);
+		hint("0..1: firelight");
+		label("  emergency");
+		ImGui::Checkbox("##lightEmergency", &l.emergency);
+		hint("pulses red while its power has failed (a lamp)");
+		label("  glow");
+		editNumber("##lightGlow", l.glow, narrow, 0.0, 1.0);
+		hint("its art's pixels this bright (0..1) glow; 0: none. a _glow.png wins");
+	}
+
+	label("Steam or smoke");
+	int kind = t.emits.kind == "steam" ? 1 : t.emits.kind == "smoke" ? 2 : 0;
+	if (pick("##emits", kind, { "none", "steam", "smoke" }, narrow))
+	{
+		t.emits.kind = kind == 1 ? "steam" : kind == 2 ? "smoke" : "";
+		if (kind == 2 && !t.recipes.empty())
+			t.emits.follows = lightDriver::working;
+	}
+	if (t.emits.emits())
+	{
+		emitProperties& e = t.emits;
+		label("  from");
+		bool atTop = e.at.x < 0.f || e.at.y < 0.f;
+		if (ImGui::Checkbox("its art's top##emitsTop", &atTop))
+			e.at = atTop ? sf::Vector2f(-1.f, -1.f) : sf::Vector2f(32.f, 16.f);
+		if (!atTop)
+		{
+			double x = e.at.x, y = e.at.y;
+			ImGui::SameLine();
+			if (editNumber("##emitsX", x, 70.f * _s, 0.0, 1024.0))
+				e.at.x = float(x);
+			ImGui::SameLine();
+			if (editNumber("##emitsY", y, 70.f * _s, 0.0, 1024.0))
+				e.at.y = float(y);
+			hint("px in its art from its top left");
+		}
+		label("  follows");
+		int driver = int(e.follows);
+		if (pick("##emitsFollows", driver, drivers, narrow))
+			e.follows = lightDriver(driver);
+		hint(driverHints[std::clamp(driver, 0, 4)]);
+		label("  rate");
+		editNumber("##emitsRate", e.rate, narrow, 0.0, 10.0);
+		hint("1: steam 12 puffs a second, smoke 7");
+	}
+
+	//the art's maps for the lighting, beside each of its art files
+	label("Maps");
+	if (!t.drawArms.empty())
+	{
+		ImGui::TextDisabled("its art is cut to the arms it links: its maps are always made from it");
+		return;
+	}
+	std::vector<std::string> files = { t.art };
+	for (const std::string& turned : t.turnArt)
+		if (!turned.empty())
+			files.push_back(turned);
+	ImGui::BeginGroup();
+	for (size_t i = 0; i < files.size(); i++)
+	{
+		const std::string& art = files[i];
+		if (art.empty())
+			continue;
+		const std::string normal = lighting::normalMapFile(art), glow = lighting::glowMapFile(art);
+		const bool hasNormal = fs::exists(diskPath(normal)) || fs::exists(normal), hasGlow = fs::exists(diskPath(glow)) || fs::exists(glow);
+		ImGui::TextUnformatted(art.c_str());
+		ImGui::TextDisabled("  %s: %s", fs::path(normal).filename().string().c_str(), hasNormal ? "hand-made" : "none (made from the art's outline)");
+		ImGui::TextDisabled("  %s: %s", fs::path(glow).filename().string().c_str(), hasGlow ? "hand-made" : "none (its bright pixels glow)");
+		ImGui::PushID(int(i));
+		if (ImGui::SmallButton(hasNormal ? "write the made normal map over it" : "write the made normal map, to paint over"))
+			lighting::writeNormalMap(art, hasNormal, mapMessage);
+		ImGui::PopID();
+	}
+	if (!mapMessage.empty())
+		ImGui::TextColored(green, "%s", mapMessage.c_str());
+	ImGui::TextDisabled("normal map: red = right, green = up the picture, blue = towards you (content/README.md)");
+	ImGui::EndGroup();
+}
+
+void contentEditor::drawShipParts(float _s)
+{
+	const float wide = 300.f * _s, narrow = 110.f * _s;
+	tileTypeInfo& t = item;
+	const std::vector<const materialInfo*> liquids = usableMaterials(true);
+
+	//its own mass
+	label("Mass");
+	bool ownMass = t.kg >= 0.0;
+	if (ImGui::Checkbox("##ownKg", &ownMass))
+		t.kg = ownMass ? shipParts::defaultKg(t) : -1.0;
+	ImGui::SameLine();
+	if (ownMass)
+	{
+		editNumber("##kg", t.kg, narrow, 0.0);
+		hint("kg");
+	}
+	else
+	{
+		char text[96];
+		snprintf(text, sizeof(text), "the default for what it is: %.0f kg", shipParts::defaultKg(t));
+		hint(text);
+	}
+
+	//what an engine or thrusters run on: a liquid fuel (any liquid material), or electricity alone
+	auto runsOn = [&](const char* _id, std::string& _fuel, double& _exhaust) {
+		std::vector<std::string> names = { "electricity alone (no fuel)" };
+		int chosen = 0;
+		for (size_t i = 0; i < liquids.size(); i++)
+		{
+			names.push_back(liquids[i]->name);
+			if (liquids[i]->key == _fuel)
+				chosen = int(i) + 1;
+		}
+		if (!_fuel.empty() && chosen == 0)
+		{
+			names.push_back(_fuel + " (not a liquid in the files)");
+			chosen = int(names.size()) - 1;
+		}
+		if (pick(_id, chosen, names, wide))
+		{
+			if (chosen == 0)
+				_fuel.clear();
+			else if (chosen <= int(liquids.size()))
+			{
+				_fuel = liquids[size_t(chosen) - 1]->key;
+				if (_exhaust <= 0.0)
+					_exhaust = 3000.0;
+			}
+		}
+		ImGui::TextDisabled("  a new fuel is a new liquid, under Materials");
+	};
+	//an electric one needs a power load; offer one
+	auto needsPower = [&](double _watts) {
+		if (t.electrical.load)
+		{
+			const double watts = t.electrical.loadResistance > 0.0 ? electrical::nominalVolts * electrical::nominalVolts / t.electrical.loadResistance : 0.0;
+			ImGui::TextDisabled("  on its %.0f W (Electrical): thrust follows its power", watts);
+		}
+		else
+		{
+			ImGui::TextColored(amber, "  electric: it needs a power load");
+			ImGui::SameLine();
+			char button[48];
+			snprintf(button, sizeof(button), "give it %.0f kW", _watts / 1000.0);
+			if (ImGui::SmallButton(button))
+			{
+				t.electrical.load = true;
+				t.electrical.loadResistance = electrical::nominalVolts * electrical::nominalVolts / _watts;
+			}
+		}
+	};
+
+	label("Main engine");
+	bool engine = t.engine.isEngine();
+	if (ImGui::Checkbox("##engine", &engine))
+	{
+		t.engine = engineProperties();
+		if (engine)
+		{
+			t.engine.newtons = 100000.0;
+			t.engine.exhaustVelocity = 9000.0;
+			t.engine.fuel = findMaterial("propellant") ? "propellant" : (liquids.empty() ? "" : liquids.front()->key);
+		}
+	}
+	hint("pushes its ship");
+	if (engine)
+	{
+		label("  thrust");
+		editNumber("##engineN", t.engine.newtons, narrow, 1e-6);
+		hint("N at full power (and fuel)");
+		label("  runs on");
+		runsOn("##engineFuel", t.engine.fuel, t.engine.exhaustVelocity);
+		if (!t.engine.electric())
+		{
+			label("  exhaust velocity");
+			editNumber("##engineVe", t.engine.exhaustVelocity, narrow, 1e-6);
+			if (const materialInfo* fuel = findMaterial(t.engine.fuel); fuel && t.engine.exhaustVelocity > 0.0)
+			{
+				const double kgPerSecond = t.engine.newtons / t.engine.exhaustVelocity;
+				char text[96];
+				snprintf(text, sizeof(text), "m/s: it burns %.2f kg/s (%.2f L/s)", kgPerSecond, kgPerSecond / fuel->kilogramsPerLitre());
+				hint(text);
+			}
+			else
+				hint("m/s");
+			ImGui::TextDisabled("  fuel through a liquid port (flow in)");
+		}
+		else
+			needsPower(5000.0);
+		label("  pushes towards");
+		int side = t.engine.pushes;
+		if (pick("##enginePushes", side, sideList, narrow))
+			t.engine.pushes = side;
+		hint("unturned (R turns it)");
+	}
+
+	label("Thrusters");
+	bool thrusters = t.thrusters.isThruster();
+	if (ImGui::Checkbox("##thrusters", &thrusters))
+	{
+		t.thrusters = thrusterProperties();
+		if (thrusters)
+		{
+			t.thrusters.newtons = 4000.0;
+			t.thrusters.exhaustVelocity = 2500.0;
+			t.thrusters.fuel = findMaterial("propellant") ? "propellant" : (liquids.empty() ? "" : liquids.front()->key);
+		}
+	}
+	hint("small pushes any way, for fine moves");
+	if (thrusters)
+	{
+		label("  thrust");
+		editNumber("##thrustersN", t.thrusters.newtons, narrow, 1e-6);
+		hint("N each way");
+		label("  runs on");
+		runsOn("##thrustersFuel", t.thrusters.fuel, t.thrusters.exhaustVelocity);
+		if (!t.thrusters.electric())
+		{
+			label("  exhaust velocity");
+			editNumber("##thrustersVe", t.thrusters.exhaustVelocity, narrow, 1e-6);
+			hint("m/s");
+		}
+		else
+			needsPower(1000.0);
+	}
+
+	label("Gyroscope");
+	editNumber("##gyro", t.gyroTorque, narrow, 0.0);
+	hint("N m (0: not one)");
+	label("Flight console");
+	ImGui::Checkbox("##helm", &t.helm);
+	hint("a ship takes orders while one has power");
+
+	label("Docking point");
+	if (ImGui::Checkbox("##dock", &t.dock.isDock) && t.dock.isDock)
+	{
+		t.dock.cell = sf::Vector2i(0, 0);
+		t.dock.face = 3;
+	}
+	hint("ships dock here, their own facing it");
+	if (t.dock.isDock)
+	{
+		label("  on tile");
+		int cell[2] = { t.dock.cell.x, t.dock.cell.y };
+		ImGui::SetNextItemWidth(narrow);
+		if (ImGui::InputInt2("##dockTile", cell))
+			t.dock.cell = sf::Vector2i(std::clamp(cell[0], 0, t.footprint.x - 1), std::clamp(cell[1], 0, t.footprint.y - 1));
+		hint("of its footprint, unturned");
+		label("  face");
+		int face = t.dock.face;
+		if (pick("##dockFace", face, sideList, narrow))
+			t.dock.face = face;
+		hint("the outside face a ship docks against");
+	}
 }
 
 void contentEditor::drawPortsTable(float _s)
@@ -1359,11 +1669,11 @@ void contentEditor::drawPreview(float _s)
 		drawItemDiagram(_s);
 		const tileTypeInfo& t = item;
 		ImGui::PushTextWrapPos(0.f);
-		const std::string lines[6] = { electrical::summary(t.electrical), fluid::summary(t.fluid), thermal::summary(t.thermal), storage::summary(t.storage),
-			items::summary(t.items), recipes::summary(t) };
-		const ImVec4 colours[6] = { ImVec4(1.f, 0.85f, 0.3f, 1.f), ImVec4(0.5f, 0.8f, 1.f, 1.f), ImVec4(0.75f, 0.85f, 0.95f, 1.f), ImVec4(0.9f, 0.75f, 0.55f, 1.f),
-			ImVec4(0.95f, 0.7f, 0.45f, 1.f), ImVec4(0.95f, 0.65f, 0.4f, 1.f) };
-		for (int i = 0; i < 6; i++)
+		const std::string lines[7] = { electrical::summary(t.electrical), fluid::summary(t.fluid), thermal::summary(t.thermal), storage::summary(t.storage),
+			items::summary(t.items), recipes::summary(t), shipParts::summary(t) };
+		const ImVec4 colours[7] = { ImVec4(1.f, 0.85f, 0.3f, 1.f), ImVec4(0.5f, 0.8f, 1.f, 1.f), ImVec4(0.75f, 0.85f, 0.95f, 1.f), ImVec4(0.9f, 0.75f, 0.55f, 1.f),
+			ImVec4(0.95f, 0.7f, 0.45f, 1.f), ImVec4(0.95f, 0.65f, 0.4f, 1.f), uiTheme::info };
+		for (int i = 0; i < 7; i++)
 			if (!lines[i].empty())
 				ImGui::TextColored(colours[i], "%s", lines[i].c_str());
 		if (t.thermal.heatCapacity > 0.0)
@@ -1498,7 +1808,7 @@ void contentEditor::save(station& _station, textureManager& _textures, contentPa
 		return;
 	}
 	saveError.clear();
-	const content::report& report = content::reload(folder, _station, _textures);
+	const content::report& report = (allStations ? content::reload(folder, allStations(), _textures) : content::reload(folder, _station, _textures));
 	_panel.notice(content::summaryLine(report), report.errors() > 0);
 	afterSave.clear();
 	const std::string tag = "[" + section + "." + key + "]";
@@ -1525,7 +1835,7 @@ void contentEditor::remove(station& _station, textureManager& _textures, content
 		return;
 	}
 	saveError.clear();
-	const content::report& report = content::reload(folder, _station, _textures);
+	const content::report& report = (allStations ? content::reload(folder, allStations(), _textures) : content::reload(folder, _station, _textures));
 	_panel.notice(content::summaryLine(report), report.errors() > 0);
 	editing = mode::none;
 	text.clear();
